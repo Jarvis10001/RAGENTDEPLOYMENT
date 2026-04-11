@@ -1,0 +1,82 @@
+[
+  {
+    "feedback_id": "fb-0001-4000-8000-000000000001",
+    "order_id": "a1b2c3d4-0002-4000-8000-000000000002",
+    "source": "review",
+    "rating": 2,
+    "text": "My package arrived in two separate shipments, and one box was completely crushed. The product inside was damaged beyond use. Very disappointed with the quality of packaging.",
+    "timestamp": "2025-03-03T10:00:00Z"
+  },
+  {
+    "feedback_id": "fb-0002-4000-8000-000000000002",
+    "order_id": "a1b2c3d4-0004-4000-8000-000000000004",
+    "source": "support_ticket",
+    "rating": null,
+    "text": "I ordered a single item but received it in two shipments, 5 days apart. The second package never arrived. I need a refund or I'm filing a chargeback with my bank.",
+    "timestamp": "2025-03-05T14:30:00Z"
+  },
+  {
+    "feedback_id": "fb-0003-4000-8000-000000000003",
+    "order_id": "a1b2c3d4-0006-4000-8000-000000000006",
+    "source": "review",
+    "rating": 1,
+    "text": "Worst delivery experience ever. Package was left in the rain, box was soaked through, and the electronics inside were water damaged. Customer service was unhelpful. Will never order again.",
+    "timestamp": "2025-03-07T09:15:00Z"
+  },
+  {
+    "feedback_id": "fb-0004-4000-8000-000000000004",
+    "order_id": "a1b2c3d4-0008-4000-8000-000000000008",
+    "source": "survey_response",
+    "rating": 3,
+    "text": "Product quality is good but the shipping takes too long compared to competitors. I waited 14 days for a '2-day shipping' order. Please improve your logistics.",
+    "timestamp": "2025-03-10T11:00:00Z"
+  },
+  {
+    "feedback_id": "fb-0005-4000-8000-000000000005",
+    "order_id": "a1b2c3d4-0010-4000-8000-000000000010",
+    "source": "support_ticket",
+    "rating": null,
+    "text": "I received a completely different product than what I ordered. The SKU on the packing slip matches my order but the item inside is wrong. This is the second time this has happened with split shipments.",
+    "timestamp": "2025-03-11T16:00:00Z"
+  },
+  {
+    "feedback_id": "fb-0006-4000-8000-000000000006",
+    "order_id": "a1b2c3d4-0005-4000-8000-000000000005",
+    "source": "review",
+    "rating": 5,
+    "text": "Great product and fast delivery! Everything arrived in perfect condition. The packaging was secure and well-protected. Will definitely order again.",
+    "timestamp": "2025-03-06T10:30:00Z"
+  },
+  {
+    "feedback_id": "fb-0007-4000-8000-000000000007",
+    "order_id": "a1b2c3d4-0012-4000-8000-000000000012",
+    "source": "review",
+    "rating": 2,
+    "text": "Split shipment caused confusion — I thought part of my order was missing. The tracking information was also inaccurate, showing delivered when it wasn't. Frustrating experience overall.",
+    "timestamp": "2025-03-13T08:45:00Z"
+  },
+  {
+    "feedback_id": "fb-0008-4000-8000-000000000008",
+    "order_id": "a1b2c3d4-0014-4000-8000-000000000014",
+    "source": "support_ticket",
+    "rating": null,
+    "text": "I'm writing to complain about the excessive packaging waste. My small item came in an enormous box filled with plastic. Also, why was it shipped from a warehouse 2000 miles away when your website says you have local fulfilment?",
+    "timestamp": "2025-03-15T13:20:00Z"
+  },
+  {
+    "feedback_id": "fb-0009-4000-8000-000000000009",
+    "order_id": "a1b2c3d4-0009-4000-8000-000000000009",
+    "source": "review",
+    "rating": 4,
+    "text": "Product is exactly as described. Shipping was reasonable. Only complaint is the generic packaging — would be nice for a premium product to have premium presentation.",
+    "timestamp": "2025-03-10T12:00:00Z"
+  },
+  {
+    "feedback_id": "fb-0010-4000-8000-000000000010",
+    "order_id": "a1b2c3d4-0007-4000-8000-000000000007",
+    "source": "social_media",
+    "rating": null,
+    "text": "@BrandName your shipping is a JOKE. Ordered express, got it in 12 days. Meanwhile I can get same-day from your competitor. Fix your supply chain or lose customers. #BadService #NeverAgain",
+    "timestamp": "2025-03-09T18:00:00Z"
+  }
+]
