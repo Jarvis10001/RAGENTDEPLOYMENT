@@ -1,1 +1,1 @@
-"""Memory package — conversation session memory."""
+"""Memory sub-package — ConversationSummaryBufferMemory factory."""

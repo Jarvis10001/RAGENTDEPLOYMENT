@@ -1,1 +1,1 @@
-"""Database package — Supabase client initialisation."""
+"""Database sub-package — Supabase client singleton."""

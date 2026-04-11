@@ -1,206 +1,154 @@
-"""Shared pytest fixtures for the test suite."""
+"""Shared pytest fixtures for the test suite.
+
+Provides mock environment variables, mock Supabase client, mock LLMs,
+sample data fixtures, and other test utilities used across unit and
+integration tests.
+
+NOTE: Environment variables are set at module level (before any src
+imports) to ensure pydantic-settings can construct the ``Settings``
+singleton without validation errors.
+"""
 
 from __future__ import annotations
 
-import json
 import os
+
+# ── Set env vars BEFORE any src imports (module-level) ───────────────
+# This is necessary because src.config creates a module-level
+# ``settings = Settings()`` that validates env vars on import.
+os.environ.setdefault("SUPABASE_URL", "https://test-project.supabase.co")
+os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key-placeholder")
+os.environ.setdefault("GOOGLE_API_KEY", "test-gemini-key-placeholder")
+os.environ.setdefault("TAVILY_API_KEY", "tvly-test-key-placeholder")
+os.environ.setdefault("PRIMARY_MODEL", "gemini-1.5-pro")
+os.environ.setdefault("SUB_AGENT_MODEL", "gemini-1.5-flash")
+os.environ.setdefault("MAX_SQL_ROWS", "10")
+os.environ.setdefault("PHOENIX_ENABLED", "false")
+os.environ.setdefault("CACHE_ENABLED", "false")
+os.environ.setdefault("DEBUG", "false")
+
 from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models.diagnostic_report import ActionItem, DiagnosticReport
-from src.models.query_intent import QueryIntent, QueryType
-from src.models.rag_result import RAGResult
-from src.models.sql_result import Severity, SQLAnalysisResult
 
-
-# ── Ensure test environment variables are set ────────────
+# ── Also set via monkeypatch for test isolation ─────────────────────
 @pytest.fixture(autouse=True)
 def _set_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Inject minimal environment variables for all tests.
 
-    This prevents pydantic-settings from failing when loading config
-    during tests that don't touch external services.
+    This provides per-test isolation on top of the module-level
+    defaults set above.
+
+    Args:
+        monkeypatch: pytest monkeypatch fixture for setting env vars.
     """
     monkeypatch.setenv("SUPABASE_URL", "https://test-project.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "test-service-key-placeholder")
-    monkeypatch.setenv("MISTRAL_API_KEY", "test-mistral-key-placeholder")
+    monkeypatch.setenv("GOOGLE_API_KEY", "test-gemini-key-placeholder")
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test-key-placeholder")
+    monkeypatch.setenv("PRIMARY_MODEL", "gemini-1.5-pro")
+    monkeypatch.setenv("SUB_AGENT_MODEL", "gemini-1.5-flash")
+    monkeypatch.setenv("MAX_SQL_ROWS", "10")
     monkeypatch.setenv("PHOENIX_ENABLED", "false")
+    monkeypatch.setenv("CACHE_ENABLED", "false")
     monkeypatch.setenv("DEBUG", "false")
 
 
-# ── Sample QueryIntent fixtures ─────────────────────────
-@pytest.fixture()
-def sample_sql_only_intent() -> QueryIntent:
-    """Return a QueryIntent that triggers SQL analysis only.
-
-    Returns:
-        A :class:`QueryIntent` with ``needs_sql=True``.
-    """
-    return QueryIntent(
-        original_query="Which campaigns have CAC above $80?",
-        needs_sql=True,
-        needs_rag=False,
-        needs_synthesis=False,
-        query_type=QueryType.CAMPAIGN_PERFORMANCE,
-        focus_metric="cac",
-        reasoning="Pure quantitative question about campaign metrics.",
-    )
-
-
-@pytest.fixture()
-def sample_rag_only_intent() -> QueryIntent:
-    """Return a QueryIntent that triggers RAG retrieval only.
-
-    Returns:
-        A :class:`QueryIntent` with ``needs_rag=True``.
-    """
-    return QueryIntent(
-        original_query="What are customers saying about packaging quality?",
-        needs_sql=False,
-        needs_rag=True,
-        needs_synthesis=False,
-        query_type=QueryType.CUSTOMER_SENTIMENT,
-        reasoning="Pure qualitative question about customer feedback.",
-    )
-
-
-@pytest.fixture()
-def sample_full_intent() -> QueryIntent:
-    """Return a QueryIntent that triggers all agents.
-
-    Returns:
-        A :class:`QueryIntent` with all needs flags set.
-    """
-    return QueryIntent(
-        original_query="Why did net profit margin drop 12% despite 20% more orders?",
-        needs_sql=True,
-        needs_rag=True,
-        needs_synthesis=True,
-        query_type=QueryType.PROFITABILITY,
-        focus_metric="net_profit_margin",
-        reasoning="Requires both quantitative and qualitative analysis.",
-    )
-
-
-@pytest.fixture()
-def sample_sql_result() -> SQLAnalysisResult:
-    """Return a sample SQLAnalysisResult for testing.
-
-    Returns:
-        A populated :class:`SQLAnalysisResult`.
-    """
-    return SQLAnalysisResult(
-        sql_executed="SELECT avg(net_profit_margin) FROM orders GROUP BY month",
-        key_metrics={
-            "avg_margin_this_month": 0.08,
-            "avg_margin_last_month": 0.20,
-            "margin_change": -0.12,
-            "total_orders": 1500,
-            "split_shipment_rate": 0.35,
-        },
-        affected_segment="All orders in the last 30 days",
-        severity=Severity.HIGH,
-        raw_rows=[
-            {"month": "2025-03", "avg_margin": 0.20, "order_count": 1200},
-            {"month": "2025-04", "avg_margin": 0.08, "order_count": 1500},
-        ],
-        analysis_summary=(
-            "Net profit margin dropped from 20% to 8% month-over-month "
-            "despite a 25% increase in order volume.  Split shipment rate "
-            "rose to 35%, suggesting logistics costs are eroding margins."
-        ),
-        query_type="profitability",
-    )
-
-
-@pytest.fixture()
-def sample_rag_result() -> RAGResult:
-    """Return a sample RAGResult for testing.
-
-    Returns:
-        A populated :class:`RAGResult`.
-    """
-    return RAGResult(
-        top_themes=[
-            "Damaged packaging on arrival",
-            "Slow delivery times",
-            "Wrong items received",
-        ],
-        representative_quotes=[
-            "My package arrived completely crushed and the product was broken.",
-            "I waited 14 days for a 2-day shipping order.",
-            "Received a completely different product than what I ordered.",
-        ],
-        source_breakdown={"reviews": 12, "support_tickets": 8, "survey_responses": 3},
-        sentiment_scores={"negative": 0.72, "neutral": 0.18, "positive": 0.10},
-        urgency_signals=[
-            "Multiple mentions of chargeback requests",
-            "Social media complaints trending",
-        ],
-        full_narrative=(
-            "Customer feedback reveals a significant deterioration in "
-            "fulfilment quality.  Packaging damage, delayed shipments, "
-            "and order accuracy issues are driving negative sentiment.  "
-            "Several customers mentioned filing chargebacks."
-        ),
-    )
-
-
-@pytest.fixture()
-def sample_diagnostic_report() -> DiagnosticReport:
-    """Return a sample DiagnosticReport for testing.
-
-    Returns:
-        A populated :class:`DiagnosticReport`.
-    """
-    return DiagnosticReport(
-        executive_summary=(
-            "Net profit margin declined 12 percentage points due to a "
-            "35% split shipment rate and rising fulfilment complaints."
-        ),
-        confirmed_root_cause=(
-            "Inventory misalignment across warehouses is forcing expensive "
-            "split shipments, while packaging quality issues are driving "
-            "returns and chargebacks."
-        ),
-        contributing_factors=[
-            "35% split shipment rate increasing freight costs",
-            "Packaging damage causing returns",
-            "Customer chargeback threats",
-        ],
-        revenue_impact_estimate="$45,000/month in excess freight + returns",
-        urgency_score=8,
-        confidence_score=7,
-        action_items=[
-            ActionItem(
-                action="Redistribute inventory to reduce split shipments.",
-                owner="Supply Chain",
-                priority="immediate",
-                expected_impact="Reduce freight costs by ~30%.",
-            ),
-            ActionItem(
-                action="Audit packaging materials and processes.",
-                owner="Operations",
-                priority="short_term",
-                expected_impact="Reduce damage complaints by 50%.",
-            ),
-        ],
-        data_gaps=["Per-warehouse inventory levels not available in schema."],
-        supporting_sql_evidence={"split_shipment_rate": 0.35, "margin_change": -0.12},
-        supporting_rag_evidence=["Package arrived completely crushed"],
-    )
-
-
-# ── Mock Supabase client fixture ─────────────────────────
+# ── Mock Supabase client fixture ─────────────────────────────────────
 @pytest.fixture()
 def mock_supabase_client() -> Generator[MagicMock, None, None]:
-    """Provide a mocked Supabase client.
+    """Provide a mocked Supabase client with chainable method support.
 
     Yields:
         A :class:`MagicMock` replacing the real Supabase client.
     """
     mock_client = MagicMock()
-    with patch("src.db.supabase_client.get_supabase_client", return_value=mock_client):
+    with patch(
+        "src.db.supabase_client.get_supabase_client",
+        return_value=mock_client,
+    ):
         yield mock_client
+
+
+# ── Mock encoder fixture ─────────────────────────────────────────────
+@pytest.fixture()
+def mock_encoder() -> Generator[MagicMock, None, None]:
+    """Provide a mocked embedding encoder that returns deterministic vectors.
+
+    Yields:
+        A :class:`MagicMock` replacing the encode function.
+    """
+    mock_fn = MagicMock(return_value=[[0.1] * 384])
+    with patch("src.tools.rag_tools.encode", mock_fn):
+        yield mock_fn
+
+
+# ── Mock reranker fixture ────────────────────────────────────────────
+@pytest.fixture()
+def mock_reranker() -> Generator[MagicMock, None, None]:
+    """Provide a mocked reranker that returns deterministic scores.
+
+    Yields:
+        A :class:`MagicMock` replacing the rerank function.
+    """
+    mock_fn = MagicMock(return_value=[(0, 0.95), (2, 0.82), (1, 0.71)])
+    with patch("src.tools.rag_tools.rerank", mock_fn):
+        yield mock_fn
+
+
+# ── Sample vector search results ────────────────────────────────────
+@pytest.fixture()
+def sample_vector_results() -> list[dict[str, Any]]:
+    """Return sample results from a pgvector RPC call.
+
+    Returns:
+        List of mock vector search result dictionaries.
+    """
+    return [
+        {
+            "id": 1,
+            "text_content": "Package was damaged on arrival. Product broken inside.",
+            "order_id": "550e8400-e29b-41d4-a716-446655440001",
+            "similarity": 0.92,
+        },
+        {
+            "id": 2,
+            "text_content": "Great product quality but shipping took 2 weeks.",
+            "order_id": "550e8400-e29b-41d4-a716-446655440002",
+            "similarity": 0.85,
+        },
+        {
+            "id": 3,
+            "text_content": "Wrong item received. Filed for return immediately.",
+            "order_id": "550e8400-e29b-41d4-a716-446655440003",
+            "similarity": 0.80,
+        },
+    ]
+
+
+# ── Sample SQL rows ─────────────────────────────────────────────────
+@pytest.fixture()
+def sample_sql_rows() -> list[dict[str, Any]]:
+    """Return sample rows from a SQL query.
+
+    Returns:
+        List of mock SQL result row dictionaries.
+    """
+    return [
+        {
+            "campaign_id": "SUMMER_SALE",
+            "campaign_name": "Summer Sale 2024",
+            "channel": "instagram",
+            "daily_spend": 150.00,
+            "cac": 45.00,
+        },
+        {
+            "campaign_id": "WINTER_PROMO",
+            "campaign_name": "Winter Promo 2024",
+            "channel": "google",
+            "daily_spend": 200.00,
+            "cac": 82.00,
+        },
+    ]

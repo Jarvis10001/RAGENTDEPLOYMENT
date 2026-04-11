@@ -1,4 +1,4 @@
-"""Singleton Supabase client with connection pooling.
+"""Singleton Supabase client with thread-safe initialisation.
 
 Usage::
 
@@ -10,29 +10,27 @@ Usage::
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
+import threading
 from typing import TYPE_CHECKING
 
 from supabase import Client, create_client
 
-from src.config import get_settings
+from src.config import settings
 
 if TYPE_CHECKING:
-    from src.config import Settings
+    pass
 
 logger = logging.getLogger(__name__)
 
-_POOL_SIZE: int = 5  # kept small — Supabase manages pooling server-side
+_client: Client | None = None
+_lock: threading.Lock = threading.Lock()
 
 
-@lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
     """Return a singleton Supabase client reused across the application.
 
-    The client is created once on first call and cached for the process
-    lifetime via :func:`functools.lru_cache`.  Connection pooling is
-    handled by Supabase's built-in PgBouncer on the server side; this
-    function avoids creating redundant client instances on our end.
+    The client is created once on first call and protected by a threading
+    lock for safety under Streamlit's threaded callback model.
 
     Returns:
         A fully-initialised :class:`supabase.Client`.
@@ -41,18 +39,15 @@ def get_supabase_client() -> Client:
         Exception: If the Supabase URL or service key is invalid or the
             connection cannot be established.
     """
-    settings: Settings = get_settings()
-    logger.info(
-        "Creating Supabase client for %s (pool_size=%d)",
-        settings.supabase_url,
-        _POOL_SIZE,
-    )
-    client: Client = create_client(
-        supabase_url=settings.supabase_url,
-        supabase_key=settings.supabase_service_key,
-    )
-    logger.info("Supabase client initialised successfully.")
-    return client
+    global _client
+    with _lock:
+        if _client is None:
+            _client = create_client(
+                supabase_url=settings.supabase_url,
+                supabase_key=settings.supabase_service_key,
+            )
+            logger.info("Supabase client initialised: %s", settings.supabase_url)
+    return _client
 
 
 def health_check() -> bool:
@@ -63,7 +58,6 @@ def health_check() -> bool:
     """
     try:
         client = get_supabase_client()
-        # A lightweight RPC or simple select to verify connectivity
         client.table("customers").select("customer_id").limit(1).execute()
         logger.info("Supabase health check passed.")
         return True

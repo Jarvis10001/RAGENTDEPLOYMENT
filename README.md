@@ -1,278 +1,264 @@
 # E-commerce Intelligence Agent
 
-A conversational multi-agent system that lets business analysts ask natural-language questions about e-commerce operations and receive deep, synthesised insights combining hard metrics with qualitative customer signals.
+A production-quality multi-agent system that lets business analysts ask
+natural-language questions about their e-commerce operations and receive
+synthesised insights combining structured metrics with qualitative customer
+signals.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Analyst Question                             │
-│         "Why did our net profit margin drop by 12%?"                │
+│                       STREAMLIT UI LAYER                            │
+│         Chat interface with streaming + session history              │
+│         Tool activity panel + token usage sidebar                    │
 └──────────────────────────────┬──────────────────────────────────────┘
-                               │
+                               │ user question
                                ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                    QUERY ROUTER AGENT                               │
-│              (Senior Analytics Query Classifier)                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                     PRIMARY AGENT (Orchestrator)                     │
 │                                                                      │
-│  • Parses intent → QueryIntent (Pydantic)                           │
-│  • Extracts: campaign_id, product_sku, date range, focus metric     │
-│  • Decides: needs_sql? needs_rag? needs_synthesis?                  │
-│  • Model: Mistral Small                                              │
-└────────────┬─────────────────────────────────┬──────────────────────┘
-             │                                 │
-     ┌───────▼───────┐                 ┌───────▼───────┐
-     │  SQL ANALYST   │                 │ RAG RETRIEVAL  │
-     │    AGENT       │                 │    AGENT       │
-     │                │                 │                │
-     │ • Parameterised│                 │ • pgvector     │
-     │   Supabase SQL │                 │   cosine search│
-     │ • Campaign ROI │                 │ • Cross-encoder│
-     │ • Split rates  │                 │   reranking    │
-     │ • CLV cohorts  │                 │ • Sentiment    │
-     │                │                 │ • Themes       │
-     │ Model: Mistral │                 │ Model: Mistral │
-     │ Small          │                 │ Small          │
-     └───────┬────────┘                 └───────┬────────┘
-             │ SQLAnalysisResult                │ RAGResult
-             └───────────────┬──────────────────┘
-                             │
-                             ▼
-     ┌───────────────────────────────────────────────────┐
-     │               SYNTHESIS AGENT                      │
-     │       (Chief Revenue Intelligence Officer)         │
-     │                                                     │
-     │  • Merges SQL + RAG evidence                       │
-     │  • Root-cause analysis with citations               │
-     │  • Revenue impact estimation                        │
-     │  • Prioritised action items                         │
-     │  • Model: Mistral Small                             │
-     └───────────────────────┬───────────────────────────┘
-                             │
-                             ▼
-     ┌───────────────────────────────────────────────────┐
-     │              DIAGNOSTIC REPORT                     │
-     │                                                     │
-     │  • executive_summary                                │
-     │  • confirmed_root_cause (with evidence)             │
-     │  • contributing_factors                             │
-     │  • revenue_impact_estimate                          │
-     │  • urgency_score (1-10)                             │
-     │  • confidence_score (1-10)                          │
-     │  • action_items [{action, owner, priority}]         │
-     │  • data_gaps                                        │
-     └───────────────────────────────────────────────────┘
+│  LangChain AgentExecutor (LCEL ReAct pattern) with:                 │
+│  • ConversationSummaryBufferMemory (persists across tool calls)      │
+│  • Structured tool routing via tool descriptions                     │
+│  • Model: gemini-2.5-flash-lite (primary orchestrator)            │
+│  • Sub-agent model: gemini-2.5-flash-lite (SQL gen/classification)  │
+│                                                                      │
+│  The primary agent NEVER answers from its own parametric knowledge.  │
+│  It ALWAYS delegates to one or more tools, then synthesises.        │
+└─────┬──────────────────┬──────────────────────┬────────────────────┘
+      │                  │                       │
+      ▼                  ▼                       ▼
+┌──────────┐    ┌─────────────────┐    ┌──────────────────┐
+│  RAG     │    │   SQL AGENT     │    │  TAVILY SEARCH   │
+│  TOOLS   │    │   TOOLS         │    │  TOOL            │
+│          │    │                 │    │                  │
+│ Tool 1:  │    │ Tool 3:         │    │ Tool 5:          │
+│ Omni-    │    │ ecommerce_sql_  │    │ web_market_      │
+│ channel  │    │ query           │    │ search           │
+│ Feedback │    │ (row-level      │    │ (live web data,  │
+│ Search   │    │  lookups)       │    │  benchmarks,     │
+│          │    │                 │    │  competitors)    │
+│ Tool 2:  │    │ Tool 4:         │    │                  │
+│ Marketing│    │ ecommerce_      │    │ Gemini Flash     │
+│ Content  │    │ analytics_query │    │ for query        │
+│ Search   │    │ (aggregations,  │    │ reformulation    │
+│          │    │  cohorts, ROI)  │    │                  │
+│ Gemini   │    │ Gemini Flash    │    └──────────────────┘
+│ Flash +  │    │ for SQL gen +   │
+│ local    │    │ local reranker  │
+│ reranker │    │                 │
+└──────────┘    └─────────────────┘
+      │                  │                       │
+      └──────────────────┴───────────────────────┘
+                         │ all tool results
+                         ▼
+              Primary agent (Gemini Flash Lite) synthesises
+              all tool outputs into final answer
+                         │
+                         ▼
+              Streamlit streams answer to UI
+              Memory updated with Q+A pair
 ```
 
 ## Tech Stack
 
-| Component       | Technology                                      |
-|-----------------|------------------------------------------------|
-| Database        | Supabase (PostgreSQL + pgvector)                |
-| Agent Framework | CrewAI (multi-agent orchestration)               |
-| LLM             | Mistral Small (via Mistral AI API)               |
-| Embeddings      | sentence-transformers/all-MiniLM-L6-v2 (384d)   |
-| Reranking       | cross-encoder/ms-marco-MiniLM-L-6-v2 (local)    |
-| RAG             | LangChain + Supabase RPC (pgvector)              |
-| Validation      | Pydantic v2                                      |
-| Observability   | Arize Phoenix (OSS)                              |
-| Memory          | LangChain ConversationSummaryBufferMemory        |
+| Component          | Technology                                      |
+|--------------------|------------------------------------------------|
+| UI                 | Streamlit 1.39+ (st.chat_message + streaming)  |
+| Primary Agent      | LangChain AgentExecutor (LCEL ReAct pattern)   |
+| Tools              | LangChain @tool decorated functions            |
+| Memory             | ConversationSummaryBufferMemory (LangChain)    |
+| Primary LLM        | Google Gemini — gemini-2.5-flash-lite          |
+| Sub-agent LLM      | Google Gemini — gemini-2.5-flash-lite          |
+| LLM Class          | ChatGoogleGenerativeAI (langchain-google-genai)|
+| Embeddings         | sentence-transformers all-MiniLM-L6-v2 (local) |
+| Reranker           | cross-encoder/ms-marco-MiniLM-L-6-v2 (local)  |
+| Vector Search      | Supabase pgvector via RPC functions            |
+| Structured Queries | Supabase Python client (parameterised only)    |
+| Web Search         | Tavily Search API                              |
+| Validation         | Pydantic v2 on all tool inputs and outputs     |
+| Config             | pydantic-settings + .env file                  |
+| Caching            | diskcache (disk-backed, no Redis needed)       |
+
+## Prerequisites
+
+1. **Python 3.10+** installed
+2. **Supabase project** with the schema and RPC functions set up
+3. **Google Gemini API key** — free at https://aistudio.google.com/app/apikey
+4. **Tavily API key** — free tier at https://app.tavily.com
 
 ## Setup
 
-### 1. Prerequisites
-
-- Python 3.11+
-- A Supabase project with the schema already provisioned
-- A Mistral AI API key
-
-### 2. Clone & Install
+### 1. Clone and install dependencies
 
 ```bash
 git clone <repo-url>
-cd ecommerce-intelligence-agent
+cd natwest-hackathon
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment
+### 2. Configure environment
 
 ```bash
-cp .env.example .env
-# Edit .env with your credentials
+copy .env.example .env
+# Edit .env with your actual API keys
 ```
 
-### 4. Supabase RPC Functions
-
-Run these in the Supabase SQL Editor to create the vector search RPC functions:
-
-```sql
--- Omnichannel vector search
-CREATE OR REPLACE FUNCTION match_omnichannel_vectors(
-    query_embedding VECTOR(384),
-    match_count INT DEFAULT 20,
-    filter_order_id UUID DEFAULT NULL
-)
-RETURNS TABLE (id BIGINT, text_content TEXT, order_id UUID, similarity FLOAT)
-LANGUAGE plpgsql AS $$
-BEGIN
-  RETURN QUERY
-  SELECT v.id, v.text_content, v.order_id,
-         1 - (v.embedding <=> query_embedding) AS similarity
-  FROM omnichannel_vectors v
-  WHERE (filter_order_id IS NULL OR v.order_id = filter_order_id)
-  ORDER BY v.embedding <=> query_embedding
-  LIMIT match_count;
-END;
-$$;
-
--- Marketing vector search
-CREATE OR REPLACE FUNCTION match_marketing_vectors(
-    query_embedding VECTOR(384),
-    match_count INT DEFAULT 20,
-    filter_campaign_id TEXT DEFAULT NULL
-)
-RETURNS TABLE (id BIGINT, text_content TEXT, campaign_id TEXT, similarity FLOAT)
-LANGUAGE plpgsql AS $$
-BEGIN
-  RETURN QUERY
-  SELECT v.id, v.text_content, v.campaign_id,
-         1 - (v.embedding <=> query_embedding) AS similarity
-  FROM marketing_vectors v
-  WHERE (filter_campaign_id IS NULL OR v.campaign_id = filter_campaign_id)
-  ORDER BY v.embedding <=> query_embedding
-  LIMIT match_count;
-END;
-$$;
-```
-
-### 5. Run Tests
+### 3. Run the Streamlit interface
 
 ```bash
-pytest tests/ -v
+streamlit run ui/streamlit_app.py
 ```
 
-### 6. Start Arize Phoenix (optional)
+The app will open at http://localhost:8501.
+
+### 4. Run tests
 
 ```bash
-python -m phoenix.server.main serve
-# Dashboard at http://localhost:6006
+python -m pytest tests/ -v --tb=short
 ```
 
-## Environment Variables (.env.example)
+## Environment Variables Reference
 
-| Variable                | Description                                  | Required |
-|------------------------|----------------------------------------------|----------|
-| `SUPABASE_URL`         | Supabase project URL                         | ✅       |
-| `SUPABASE_SERVICE_KEY`  | Supabase service-role key                    | ✅       |
-| `MISTRAL_API_KEY`      | Mistral AI API key                           | ✅       |
-| `ROUTER_MODEL_NAME`    | Model for query router (default: mistral-small-latest) | ❌ |
-| `ANALYST_MODEL_NAME`   | Model for SQL analyst (default: mistral-small-latest)  | ❌ |
-| `RAG_MODEL_NAME`       | Model for RAG agent (default: mistral-small-latest)    | ❌ |
-| `SYNTHESIS_MODEL_NAME` | Model for synthesis (default: mistral-small-latest)    | ❌ |
-| `EMBEDDING_MODEL_NAME` | Embedding model (default: all-MiniLM-L6-v2)           | ❌ |
-| `RERANKER_MODEL_NAME`  | Reranker model (default: ms-marco-MiniLM-L-6-v2)      | ❌ |
-| `VECTOR_SEARCH_TOP_K`  | Vector candidates to retrieve (default: 20)            | ❌ |
-| `RERANKER_TOP_K`       | Results to keep after reranking (default: 5)           | ❌ |
-| `PHOENIX_ENABLED`      | Enable Arize Phoenix telemetry (default: true)         | ❌ |
-| `PHOENIX_ENDPOINT`     | Phoenix collector URL (default: localhost:6006)        | ❌ |
-| `MEMORY_MAX_TOKEN_LIMIT` | Session memory token budget (default: 2000)          | ❌ |
-| `LOG_LEVEL`            | Logging level (default: INFO)                          | ❌ |
-| `DEBUG`                | Verbose debug output (default: false)                  | ❌ |
+| Variable                 | Required | Default                              | Description                                |
+|--------------------------|----------|--------------------------------------|--------------------------------------------|
+| `SUPABASE_URL`           | ✅       | —                                    | Supabase project URL                       |
+| `SUPABASE_SERVICE_KEY`   | ✅       | —                                    | Supabase service-role key                  |
+| `GOOGLE_API_KEY`         | ✅       | —                                    | Google Gemini API key                      |
+| `TAVILY_API_KEY`         | ✅       | —                                    | Tavily web search API key                  |
+| `PRIMARY_MODEL`          | ❌       | `gemini-3.1-flash-lite-preview`              | Primary orchestrator model                 |
+| `SUB_AGENT_MODEL`        | ❌       | `gemini-3.1-flash-lite-preview`              | Sub-agent model (SQL gen, summarisation)   |
+| `PRIMARY_MAX_TOKENS`     | ❌       | `2048`                               | Max output tokens for primary model        |
+| `SUB_AGENT_MAX_TOKENS`   | ❌       | `600`                                | Max output tokens for sub-agent model      |
+| `EMBEDDING_MODEL`        | ❌       | `all-MiniLM-L6-v2`                  | SentenceTransformer model for embeddings   |
+| `RERANKER_MODEL`         | ❌       | `cross-encoder/ms-marco-MiniLM-L-6-v2` | CrossEncoder model for reranking        |
+| `RAG_RETRIEVE_K`         | ❌       | `20`                                 | Candidates from pgvector search            |
+| `RAG_RERANK_K`           | ❌       | `5`                                  | Results after reranking                    |
+| `MAX_SQL_ROWS`           | ❌       | `10`                                 | Max rows from SQL queries                  |
+| `TAVILY_SEARCH_DEPTH`    | ❌       | `advanced`                           | Tavily depth: `basic` or `advanced`        |
+| `TAVILY_MAX_RESULTS`     | ❌       | `5`                                  | Max web search results                     |
+| `CACHE_ENABLED`          | ❌       | `true`                               | Enable/disable disk cache                  |
+| `CACHE_DIR`              | ❌       | `.cache/responses`                   | Cache directory path                       |
+| `CACHE_TTL_SECONDS`      | ❌       | `3600`                               | Default cache TTL (1 hour)                 |
+| `TAVILY_CACHE_TTL_SECONDS`| ❌      | `1800`                               | Web search cache TTL (30 min)              |
+| `MEMORY_MAX_TOKEN_LIMIT` | ❌       | `2000`                               | Conversation memory token budget           |
+| `PHOENIX_ENABLED`        | ❌       | `false`                              | Arize Phoenix observability                |
+| `LOG_LEVEL`              | ❌       | `INFO`                               | Logging level                              |
+| `DEBUG`                  | ❌       | `false`                              | Verbose debug output                       |
 
-## Example Queries & Routing
+## Example Queries and Expected Tool Routing
 
-### 1. Full Pipeline (SQL + RAG + Synthesis)
+| # | Query | Tools Called |
+|---|-------|-------------|
+| 1 | "Why did our net profit margin drop 12% last month despite 20% more orders?" | `ecommerce_sql_query` + `omnichannel_feedback_search` |
+| 2 | "Which marketing campaigns have CAC above $80 and CTR below 2%?" | `ecommerce_analytics_query` |
+| 3 | "What are customers saying about our packaging in the last 30 days?" | `omnichannel_feedback_search` |
+| 4 | "Compare split shipment rates and freight costs across warehouses" | `ecommerce_analytics_query` |
+| 5 | "Is our SUMMER_SALE campaign messaging aligned with what customers say?" | `marketing_content_search` + `omnichannel_feedback_search` |
+| 6 | "What is the industry average return rate for e-commerce in 2024?" | `web_market_search` |
+| 7 | "Which customers acquired via Instagram have the highest 90-day CLV?" | `ecommerce_analytics_query` |
+| 8 | "High freight costs on SKU-4421 — are customers complaining about it?" | `ecommerce_sql_query` + `omnichannel_feedback_search` |
 
-```
-"Why did our net profit margin drop by 12% last month despite a 20% increase in orders?"
-```
-**Routing:** `needs_sql=True` `needs_rag=True` `needs_synthesis=True`
-**Rationale:** Requires quantitative margin/order analysis AND qualitative feedback to diagnose root cause.
+## Gemini Free Tier Limits and Caching
 
-### 2. SQL Only
+The Google Gemini free tier has rate limits:
+- **gemini-2.5-flash-lite**: 15 RPM, 1M TPM
 
-```
-"Which marketing campaigns have a CAC above $80 and a click-through rate below 2%?"
-```
-**Routing:** `needs_sql=True` `needs_rag=False` `needs_synthesis=False`
-**Rationale:** Pure quantitative question answered entirely from `marketing_campaigns` table.
+**How caching mitigates these:**
+- All tool results are cached to disk via `diskcache` with configurable TTLs
+- Repeated identical queries hit the cache and make **zero** LLM/API calls
+- RAG and SQL caches default to 1-hour TTL; web search to 30-minute TTL
+- Cache is disk-backed and survives server restarts
+- Disable caching by setting `CACHE_ENABLED=false` in `.env`
 
-### 3. RAG Only
+## Troubleshooting
 
-```
-"What are customers saying about our packaging quality in the last 30 days?"
-```
-**Routing:** `needs_sql=False` `needs_rag=True` `needs_synthesis=False`
-**Rationale:** Pure qualitative question requiring vector search on customer feedback.
+### Supabase PGRST202 Schema Cache Error
 
-### 4. SQL + RAG + Synthesis
+If you see `PGRST202` errors, your Supabase schema cache is stale:
 
-```
-"We're seeing high split shipment rates on SKU-4421 — is this causing customer complaints?"
-```
-**Routing:** `needs_sql=True` `needs_rag=True` `needs_synthesis=True`
-**Rationale:** Requires split shipment rate data from `orders`/`shipments` AND customer feedback about the experience.
+1. Go to **Supabase Dashboard → Settings → API**
+2. Click **Reload schema cache**
+3. Or restart the PostgREST service
 
-### 5. Trend + Synthesis
+### Gemini Quota Exhaustion
 
-```
-"Which customer acquisition channels are producing the highest 90-day CLV?"
-```
-**Routing:** `needs_sql=True` `needs_rag=False` `needs_synthesis=False`
-**Rationale:** Quantitative CLV analysis joining `customers` with `marketing_campaigns` via `orders`.
+If you hit rate limits:
 
-## Usage
+1. Wait 60 seconds and retry
+2. Use narrower filters (specific campaign, date range, SKU) to reduce token usage
+3. Enable caching (`CACHE_ENABLED=true`) to avoid repeated calls
+4. Consider upgrading to a paid Gemini plan for higher limits
 
-```python
-from src.crews.diagnostic_crew import DiagnosticCrew
+### Embedding Model First-Run Download
 
-crew = DiagnosticCrew(verbose=True)
-report = crew.run("Why did our net profit margin drop by 12% last month?")
+On first startup, `sentence-transformers` downloads the embedding (~22 MB)
+and reranker (~22 MB) models. This requires internet access and may take
+1-2 minutes. Subsequent starts load from cache (~5 seconds).
 
-print(report.executive_summary)
-print(f"Root cause: {report.confirmed_root_cause}")
-print(f"Urgency: {report.urgency_score}/10")
-print(f"Confidence: {report.confidence_score}/10")
+### Port Already In Use
 
-for action in report.action_items:
-    print(f"  [{action.priority}] {action.action} → {action.owner}")
+If Streamlit says port 8501 is in use:
+
+```bash
+streamlit run ui/streamlit_app.py --server.port 8502
 ```
 
 ## Project Structure
 
 ```
-ecommerce-intelligence-agent/
 ├── src/
-│   ├── agents/          # CrewAI agent definitions
-│   ├── crews/           # Crew orchestration wiring
-│   ├── tools/           # LangChain-compatible tools (SQL, vector, reranker)
-│   ├── models/          # Pydantic v2 models for all I/O
-│   ├── db/              # Supabase client singleton
-│   ├── ingestion/       # Text chunking + embedding upsert
-│   ├── memory/          # Session conversation memory
-│   └── config.py        # pydantic-settings configuration
+│   ├── agent/
+│   │   ├── __init__.py
+│   │   └── primary_agent.py        # AgentExecutor + memory wiring
+│   ├── tools/
+│   │   ├── __init__.py
+│   │   ├── rag_tools.py            # Tool 1 + Tool 2 (vector search)
+│   │   ├── sql_tools.py            # Tool 3 + Tool 4 (SQL queries)
+│   │   └── tavily_tool.py          # Tool 5 (web search)
+│   ├── memory/
+│   │   ├── __init__.py
+│   │   └── session_memory.py       # ConversationSummaryBufferMemory factory
+│   ├── db/
+│   │   ├── __init__.py
+│   │   └── supabase_client.py      # Singleton Supabase client
+│   ├── embeddings/
+│   │   ├── __init__.py
+│   │   ├── encoder.py              # SentenceTransformer singleton
+│   │   └── reranker.py             # CrossEncoder singleton
+│   ├── cache/
+│   │   ├── __init__.py
+│   │   └── response_cache.py       # diskcache wrapper
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── tool_inputs.py          # Pydantic v2 input models
+│   │   └── tool_outputs.py         # Pydantic v2 output models
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── token_budget.py         # compress_sql_rows, compress_rag_chunks
+│   │   └── retry.py                # exponential_backoff decorator
+│   └── config.py                   # pydantic-settings Settings class
+├── ui/
+│   ├── __init__.py
+│   └── streamlit_app.py            # Main Streamlit chat interface
 ├── tests/
-│   ├── unit/            # Unit tests (router, SQL tool, chunking)
-│   ├── integration/     # Full pipeline integration test
-│   └── conftest.py      # Shared fixtures
+│   ├── unit/
+│   │   ├── test_rag_tools.py
+│   │   ├── test_sql_tools.py
+│   │   ├── test_tavily_tool.py
+│   │   └── test_token_budget.py
+│   ├── integration/
+│   │   └── test_primary_agent.py
+│   └── conftest.py
 ├── assets/
-│   └── sample_data/     # Sample CSV and JSON for development
+│   └── sample_data/
+│       ├── feedback_sample.json
+│       └── orders_sample.csv
 ├── .env.example
 ├── requirements.txt
 └── README.md
 ```
-
-## Code Quality
-
-- **Type hints** on every function signature
-- **Google-style docstrings** with Args/Returns/Raises on every function
-- **Black** formatter for consistent code style
-- **Pydantic v2** validation on all agent inputs and outputs
-- **Parameterised queries** — zero string-interpolated SQL
-- **No magic numbers** — all constants are named and configurable
-
-## License
-
-MIT

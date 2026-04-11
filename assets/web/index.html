@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-commerce Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --card: #fffdf8;
+      --ink: #1f1d1a;
+      --muted: #6d665f;
+      --accent: #1b7f8a;
+      --accent-2: #ef6f42;
+      --line: #d9cfbf;
+      --ok: #2c7a46;
+      --warn: #a15d00;
+      --alert: #a02727;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1000px 420px at -10% -20%, #efe3cf, transparent 65%),
+        radial-gradient(900px 380px at 110% -10%, #f3ddc8, transparent 65%),
+        linear-gradient(170deg, #f8f3ea 0%, #f3eee4 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(980px, 92vw);
+      margin: 40px auto;
+      display: grid;
+      gap: 18px;
+      animation: rise 420ms ease;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 10px 35px rgba(56, 47, 32, 0.08);
+    }
+
+    .title {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(1.6rem, 2.5vw, 2.3rem);
+      letter-spacing: 0.01em;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 70ch;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 0.98rem;
+      resize: vertical;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      background: linear-gradient(120deg, var(--accent), #145d65);
+      color: #fff;
+      padding: 12px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 160ms ease, opacity 160ms ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.65; cursor: wait; }
+
+    .hint { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
+
+    .status { margin-top: 10px; min-height: 1.2em; color: var(--muted); }
+
+    .report { display: grid; gap: 10px; }
+
+    .report section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1rem;
+    }
+
+    .scores {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .score-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .score-value { font-size: 1.25rem; font-weight: 700; }
+
+    ul { margin: 0; padding-left: 18px; }
+    li { margin: 6px 0; }
+
+    .error {
+      color: #fff;
+      background: var(--alert);
+      border-radius: 10px;
+      padding: 10px;
+      display: none;
+    }
+
+    @media (max-width: 760px) {
+      .shell { margin: 18px auto 26px; }
+      .input-row { grid-template-columns: 1fr; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <h1 class="title">E-commerce Intelligence Console</h1>
+      <p class="subtitle">Ask a business question. The system combines structured metrics and qualitative evidence to generate a diagnostic report.</p>
+    </header>
+
+    <section class="panel">
+      <div class="input-row">
+        <label for="query" style="display:block; width:100%;">
+          <textarea id="query" placeholder="Example: Why did net profit margin drop by 12% even though orders increased last month?"></textarea>
+        </label>
+        <button id="runBtn" type="button">Run Analysis</button>
+      </div>
+      <div class="hint">Tip: specific date ranges, campaign IDs, and product SKUs usually produce stronger diagnostics.</div>
+      <div id="status" class="status"></div>
+      <div id="error" class="error"></div>
+    </section>
+
+    <section id="report" class="panel report" style="display:none;"></section>
+  </main>
+
+  <script>
+    const runBtn = document.getElementById("runBtn");
+    const queryInput = document.getElementById("query");
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+    const reportEl = document.getElementById("report");
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function list(items) {
+      if (!items || items.length === 0) return "<p>None</p>";
+      return `<ul>${items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
+    }
+
+    function mapList(obj) {
+      const entries = Object.entries(obj || {});
+      if (entries.length === 0) return "<p>None</p>";
+      return `<ul>${entries.map(([k, v]) => `<li><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</li>`).join("")}</ul>`;
+    }
+
+    function renderReport(report) {
+      reportEl.innerHTML = `
+        <section>
+          <h3>Executive Summary</h3>
+          <p>${escapeHtml(report.executive_summary || "")}</p>
+        </section>
+        <section>
+          <h3>Confirmed Root Cause</h3>
+          <p>${escapeHtml(report.confirmed_root_cause || "")}</p>
+        </section>
+        <section>
+          <h3>Contributing Factors</h3>
+          ${list(report.contributing_factors)}
+        </section>
+        <section>
+          <h3>Revenue Impact Estimate</h3>
+          <p>${escapeHtml(report.revenue_impact_estimate || "")}</p>
+        </section>
+        <section>
+          <h3>Scores</h3>
+          <div class="scores">
+            <div class="score-card"><div>Urgency</div><div class="score-value">${escapeHtml(report.urgency_score || "")}/10</div></div>
+            <div class="score-card"><div>Confidence</div><div class="score-value">${escapeHtml(report.confidence_score || "")}/10</div></div>
+          </div>
+        </section>
+        <section>
+          <h3>Action Items</h3>
+          ${list((report.action_items || []).map(item => `${item.priority}: ${item.action} (${item.owner})`))}
+        </section>
+        <section>
+          <h3>Supporting SQL Evidence</h3>
+          ${mapList(report.supporting_sql_evidence)}
+        </section>
+        <section>
+          <h3>Supporting Qualitative Evidence</h3>
+          ${list(report.supporting_rag_evidence)}
+        </section>
+        <section>
+          <h3>Data Gaps</h3>
+          ${list(report.data_gaps)}
+        </section>
+      `;
+      reportEl.style.display = "grid";
+    }
+
+    async function runAnalysis() {
+      const query = queryInput.value.trim();
+      if (!query) {
+        errorEl.textContent = "Please enter a question.";
+        errorEl.style.display = "block";
+        return;
+      }
+
+      errorEl.style.display = "none";
+      statusEl.textContent = "Running diagnostic pipeline...";
+      runBtn.disabled = true;
+
+      try {
+        const response = await fetch("/api/diagnose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || "Request failed");
+        }
+
+        const payload = await response.json();
+        renderReport(payload.report || {});
+        statusEl.textContent = "Completed.";
+      } catch (err) {
+        statusEl.textContent = "";
+        errorEl.textContent = err.message || "Unexpected error";
+        errorEl.style.display = "block";
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    runBtn.addEventListener("click", runAnalysis);
+    queryInput.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runAnalysis();
+    });
+  </script>
+</body>
+</html>

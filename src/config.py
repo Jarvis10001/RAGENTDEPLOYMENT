@@ -1,52 +1,30 @@
-"""Centralized configuration loaded from environment variables via pydantic-settings.
+"""Centralised configuration loaded from environment variables via pydantic-settings.
 
-All secrets and tunables are read from a ``.env`` file (or real env vars).
-Nothing is hard-coded.
+All secrets and tunables are read from a ``.env`` file (or real environment
+variables in production). Nothing is hard-coded. Every other module imports
+the module-level ``settings`` singleton from here.
+
+Validation
+----------
+* ``SUPABASE_URL`` must begin with ``https://``.
+* ``TAVILY_SEARCH_DEPTH`` must be ``basic`` or ``advanced``.
+* ``LOG_LEVEL`` must be a valid Python log level name.
 """
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Optional
+import logging
+from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-class LogLevel(str, Enum):
-    """Supported log levels."""
-
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
 
 
 class Settings(BaseSettings):
     """Application-wide settings backed by ``.env`` and environment variables.
 
-    Attributes:
-        supabase_url: Full URL to the Supabase project (e.g. https://xyz.supabase.co).
-        supabase_service_key: Supabase service-role key for server-side access.
-        groq_api_key: API key for Groq (replaces Mistral — faster, higher rate limits).
-        router_model_name: Model used by the query-router agent (fast 8B).
-        analyst_model_name: Model used by the SQL analyst agent (70B reasoning).
-        rag_model_name: Model used by the RAG retrieval agent.
-        synthesis_model_name: Model used by the synthesis agent.
-        embedding_model_name: HuggingFace model ID for generating embeddings.
-        embedding_dimension: Dimensionality of the embedding vectors.
-        reranker_model_name: HuggingFace model ID for cross-encoder reranking.
-        vector_search_top_k: Number of candidates returned by pgvector search.
-        reranker_top_k: Number of results kept after reranking.
-        max_sql_rows: Maximum rows returned by the SQL tool per query.
-        chunk_size: Maximum number of characters per text chunk.
-        chunk_overlap: Overlap in characters between adjacent chunks.
-        phoenix_endpoint: URL of the Arize Phoenix collector.
-        phoenix_enabled: Whether to send telemetry to Phoenix.
-        memory_max_token_limit: Token budget for conversation summary memory.
-        log_level: Application log level.
-        debug: Enables verbose debug output.
+    All fields without a default are **required** — the application will
+    refuse to start if they are absent.
     """
 
     model_config = SettingsConfigDict(
@@ -56,146 +34,186 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── Supabase ─────────────────────────────────────────
+    # ── Database (required) ──────────────────────────────────────────
     supabase_url: str = Field(
         ...,
-        description="Full URL to the Supabase project.",
+        description="Full HTTPS URL to the Supabase project.",
     )
     supabase_service_key: str = Field(
         ...,
-        description="Supabase service-role key.",
+        description="Supabase service-role key (bypasses RLS for server use).",
     )
 
-    # ── LLM ──────────────────────────────────────────────
-    groq_api_key: str = Field(
+    # ── LLM — Google Gemini (required) ───────────────────────────────
+    google_api_key: str = Field(
         ...,
-        description="API key for Groq (free at console.groq.com).",
+        description="Google AI Studio API key for Gemini models.",
     )
 
-    # ── Model Selection ──────────────────────────────────
-    # LiteLLM prefix "groq/" is mandatory — CrewAI routes through LiteLLM.
-    # 8B for fast classification, 70B for reasoning-heavy agents.
-    router_model_name: str = Field(
-        default="groq/llama-3.1-8b-instant",
-        description="Model for the query-router agent (fast, cheap).",
+    # ── Model names ──────────────────────────────────────────────────
+    primary_model: str = Field(
+        default="gemini-3.1-flash-lite-preview",
+        description="Model name for the primary orchestrator agent.",
     )
-    analyst_model_name: str = Field(
-        default="groq/llama-3.3-70b-versatile",
-        description="Model for the SQL analyst agent (best reasoning).",
-    )
-    rag_model_name: str = Field(
-        default="groq/llama-3.3-70b-versatile",
-        description="Model for the RAG retrieval agent.",
-    )
-    synthesis_model_name: str = Field(
-        default="groq/llama-3.3-70b-versatile",
-        description="Model for the synthesis agent.",
+    sub_agent_model: str = Field(
+        default="gemini-3.1-flash-lite-preview",
+        description="Model name for sub-agent tasks (SQL gen, summarisation).",
     )
 
-    # ── Embeddings ───────────────────────────────────────
-    embedding_model_name: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        description="HuggingFace model ID for embeddings.",
+    # ── Token budgets ────────────────────────────────────────────────
+    primary_max_tokens: int = Field(
+        default=2048,
+        ge=256,
+        le=8192,
+        description="Max output tokens for the primary model.",
     )
-    embedding_dimension: int = Field(
-        default=384,
-        description="Dimensionality of embedding vectors.",
+    sub_agent_max_tokens: int = Field(
+        default=600,
+        ge=64,
+        le=2048,
+        description="Max output tokens for sub-agent tasks.",
     )
 
-    # ── Reranker ─────────────────────────────────────────
-    reranker_model_name: str = Field(
+    # ── Web search (required) ────────────────────────────────────────
+    tavily_api_key: str = Field(
+        ...,
+        description="Tavily web search API key.",
+    )
+
+    # ── Embeddings (local — no API key needed) ───────────────────────
+    embedding_model: str = Field(
+        default="all-MiniLM-L6-v2",
+        description="SentenceTransformer model ID for text embeddings.",
+    )
+    reranker_model: str = Field(
         default="cross-encoder/ms-marco-MiniLM-L-6-v2",
-        description="HuggingFace model ID for cross-encoder reranking.",
+        description="CrossEncoder model ID for semantic reranking.",
     )
 
-    # ── RAG Settings ─────────────────────────────────────
-    vector_search_top_k: int = Field(
+    # ── RAG ──────────────────────────────────────────────────────────
+    rag_retrieve_k: int = Field(
         default=20,
         ge=1,
         le=100,
         description="Candidates returned by pgvector similarity search.",
     )
-    reranker_top_k: int = Field(
+    rag_rerank_k: int = Field(
         default=5,
         ge=1,
         le=50,
         description="Results kept after cross-encoder reranking.",
     )
 
-    # ── SQL Tool ─────────────────────────────────────────
+    # ── SQL ──────────────────────────────────────────────────────────
     max_sql_rows: int = Field(
-        default=15,
+        default=10,
         ge=1,
         le=100,
         description="Maximum rows returned by the SQL tool per query.",
     )
 
-    # ── Chunking ─────────────────────────────────────────
-    chunk_size: int = Field(
-        default=512,
-        ge=64,
-        description="Max characters per text chunk.",
+    # ── Tavily ───────────────────────────────────────────────────────
+    tavily_search_depth: Literal["basic", "advanced"] = Field(
+        default="advanced",
+        description="Tavily search depth: 'basic' (faster) or 'advanced' (thorough).",
     )
-    chunk_overlap: int = Field(
-        default=64,
-        ge=0,
-        description="Character overlap between adjacent chunks.",
+    tavily_max_results: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Maximum web search results to return per query.",
     )
 
-    # ── Observability ────────────────────────────────────
-    phoenix_endpoint: str = Field(
-        default="http://localhost:6006",
-        description="Arize Phoenix collector URL.",
-    )
-    phoenix_enabled: bool = Field(
+    # ── Cache ────────────────────────────────────────────────────────
+    cache_enabled: bool = Field(
         default=True,
-        description="Whether to send telemetry to Phoenix.",
+        description="Enable disk-backed response caching.",
+    )
+    cache_dir: str = Field(
+        default=".cache/responses",
+        description="Directory path for diskcache storage.",
+    )
+    cache_ttl_seconds: int = Field(
+        default=3600,
+        ge=60,
+        description="Default TTL for cached tool responses (seconds).",
+    )
+    tavily_cache_ttl_seconds: int = Field(
+        default=1800,
+        ge=60,
+        description="TTL for cached web search responses (seconds).",
     )
 
-    # ── Memory ───────────────────────────────────────────
+    # ── Memory ───────────────────────────────────────────────────────
     memory_max_token_limit: int = Field(
         default=2000,
         ge=256,
-        description="Token budget for conversation summary memory.",
+        le=8192,
+        description="Token budget for ConversationSummaryBufferMemory.",
     )
 
-    # ── Application ──────────────────────────────────────
-    log_level: LogLevel = Field(
-        default=LogLevel.INFO,
-        description="Application log level.",
+    # ── Observability ────────────────────────────────────────────────
+    phoenix_enabled: bool = Field(
+        default=False,
+        description="Send traces to Arize Phoenix for LLM observability.",
+    )
+
+    # ── Application ──────────────────────────────────────────────────
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO",
+        description="Root logger level.",
     )
     debug: bool = Field(
         default=False,
-        description="Enable verbose debug output.",
+        description="Enable verbose AgentExecutor debug output.",
     )
+
+    # ── Validators ───────────────────────────────────────────────────
 
     @field_validator("supabase_url")
     @classmethod
     def _validate_supabase_url(cls, value: str) -> str:
-        """Ensure the Supabase URL looks like a valid HTTPS endpoint.
+        """Ensure the Supabase URL is a valid HTTPS endpoint.
 
         Args:
-            value: Raw URL string from the environment.
+            value: Raw URL string from environment.
 
         Returns:
-            The validated URL string (trailing slash stripped).
+            Validated URL with trailing slash stripped.
 
         Raises:
             ValueError: If the URL does not start with ``https://``.
         """
         value = value.strip().rstrip("/")
         if not value.startswith("https://"):
-            raise ValueError("SUPABASE_URL must start with https://")
+            raise ValueError(
+                f"SUPABASE_URL must start with 'https://'. Got: {value!r}"
+            )
         return value
 
+    @model_validator(mode="after")
+    def _validate_rag_k_ordering(self) -> "Settings":
+        """Ensure retrieve_k >= rerank_k (cannot rerank more than retrieved).
 
-def get_settings() -> Settings:
-    """Return a cached ``Settings`` instance.
+        Returns:
+            The validated settings instance.
 
-    The first call reads from ``.env`` / environment; subsequent calls
-    return the same object.
+        Raises:
+            ValueError: If rag_rerank_k > rag_retrieve_k.
+        """
+        if self.rag_rerank_k > self.rag_retrieve_k:
+            raise ValueError(
+                f"RAG_RERANK_K ({self.rag_rerank_k}) cannot exceed "
+                f"RAG_RETRIEVE_K ({self.rag_retrieve_k})."
+            )
+        return self
 
-    Returns:
-        A fully-validated :class:`Settings` instance.
-    """
-    return Settings()  # type: ignore[call-arg]
+
+settings = Settings()  # type: ignore[call-arg]
+
+# ── Configure root logger from settings (runs once at import time) ────
+logging.basicConfig(
+    level=settings.log_level,
+    format="%(asctime)s | %(name)-30s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
