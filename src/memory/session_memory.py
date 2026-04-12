@@ -11,6 +11,7 @@ import logging
 
 from langchain.memory import ConversationSummaryBufferMemory
 from langchain_core.caches import BaseCache  # noqa: F401 — required for Pydantic v2 forward-ref resolution
+from langchain_core.callbacks.manager import Callbacks  # noqa: F401 — required for Pydantic v2 forward-ref resolution
 
 from src.config import settings
 from src.llm import get_sub_llm
@@ -31,12 +32,15 @@ def create_memory() -> ConversationSummaryBufferMemory:
         A configured :class:`ConversationSummaryBufferMemory` ready to
         be passed to an ``AgentExecutor``.
     """
-    # Resolve Pydantic v2 forward references (BaseCache) before first instantiation.
-    # Must pass _types_namespace explicitly so Pydantic can find the type.
+    # Resolve Pydantic v2 forward references (BaseCache, Callbacks) before first instantiation.
+    # Must pass _types_namespace explicitly so Pydantic can find the types.
     global _model_rebuilt
     if not _model_rebuilt:
         ConversationSummaryBufferMemory.model_rebuild(
-            _types_namespace={"BaseCache": BaseCache},
+            _types_namespace={
+                "BaseCache": BaseCache,
+                "Callbacks": Callbacks,
+            },
             force=True,
         )
         _model_rebuilt = True
