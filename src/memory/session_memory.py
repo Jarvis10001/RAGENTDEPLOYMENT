@@ -9,11 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from langchain_core.caches import BaseCache
 from langchain.memory import ConversationSummaryBufferMemory
-
-# Workaround for PydanticUserError with ConversationSummaryBufferMemory in newer Pydantic versions
-ConversationSummaryBufferMemory.model_rebuild(_types_namespace={"BaseCache": BaseCache})
 
 from src.config import settings
 from src.llm import get_sub_llm
