@@ -30,14 +30,6 @@ from typing import Any, Final
 from langchain import hub
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.memory import ConversationSummaryBufferMemory
-
-# Fix Pydantic v2 forward-reference resolution for BaseCache.
-try:
-    from langchain_core.caches import BaseCache  # noqa: F401
-    ConversationSummaryBufferMemory.model_rebuild()
-except Exception:
-    pass
-
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.cache import response_cache as cache

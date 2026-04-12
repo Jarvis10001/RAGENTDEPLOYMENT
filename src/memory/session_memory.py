@@ -10,19 +10,14 @@ from __future__ import annotations
 import logging
 
 from langchain.memory import ConversationSummaryBufferMemory
-
-# Fix Pydantic v2 forward-reference resolution for BaseCache.
-# See: https://errors.pydantic.dev/2.12/u/class-not-fully-defined
-try:
-    from langchain_core.caches import BaseCache  # noqa: F401 — needed for model_rebuild
-    ConversationSummaryBufferMemory.model_rebuild()
-except Exception:
-    pass  # Already rebuilt or not needed in this environment
+from langchain_core.caches import BaseCache  # noqa: F401 — required for Pydantic v2 forward-ref resolution
 
 from src.config import settings
 from src.llm import get_sub_llm
 
 logger = logging.getLogger(__name__)
+
+_model_rebuilt = False
 
 
 def create_memory() -> ConversationSummaryBufferMemory:
@@ -36,6 +31,17 @@ def create_memory() -> ConversationSummaryBufferMemory:
         A configured :class:`ConversationSummaryBufferMemory` ready to
         be passed to an ``AgentExecutor``.
     """
+    # Resolve Pydantic v2 forward references (BaseCache) before first instantiation.
+    # Must pass _types_namespace explicitly so Pydantic can find the type.
+    global _model_rebuilt
+    if not _model_rebuilt:
+        ConversationSummaryBufferMemory.model_rebuild(
+            _types_namespace={"BaseCache": BaseCache},
+            force=True,
+        )
+        _model_rebuilt = True
+        logger.debug("ConversationSummaryBufferMemory.model_rebuild() succeeded.")
+
     sub_llm = get_sub_llm()
 
     memory = ConversationSummaryBufferMemory(
@@ -52,3 +58,4 @@ def create_memory() -> ConversationSummaryBufferMemory:
         settings.sub_agent_model,
     )
     return memory
+

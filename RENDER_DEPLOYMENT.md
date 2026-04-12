@@ -6,7 +6,7 @@
 - Connect your GitHub repository + deployment branch
 - Choose **Python** as the runtime
 - Set build command: `pip install -r requirements.txt`
-- Set start command: `gunicorn -w 4 -k uvicorn.workers.UvicornWorker api.main:app --bind 0.0.0.0:$PORT`
+- Set start command: `gunicorn -k uvicorn.workers.UvicornWorker api.main:app --bind 0.0.0.0:$PORT`
 
 ### 2. Required Environment Variables
 Add these to Render's Environment Variables dashboard:
