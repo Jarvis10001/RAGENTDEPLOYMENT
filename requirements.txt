@@ -27,8 +27,8 @@ gunicorn  # For production deployment on Render
 httpx
 
 # Validation
-pydantic==2.9.2
-pydantic-settings==2.6.1
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
 
 # Caching
 diskcache==5.6.3
