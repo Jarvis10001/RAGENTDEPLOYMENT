@@ -57,8 +57,11 @@ def web_market_search(
             logger.info("Cache hit for web search.")
             return cached
 
-        # Step 2: Rewrite question into an optimal web search query
+        # Step 2: Check domain safety and rewrite question
         search_query = _rewrite_query(query)
+        if search_query.strip() == "REJECTED_DOMAIN":
+            logger.warning("Query rejected by domain filter: %s", query)
+            return "Error: Question is not related to e-commerce, retail, or business intelligence. Web search declined."
 
         # Step 3: Execute Tavily search
         raw_results = _execute_tavily_search(search_query, search_depth, max_results)
@@ -91,9 +94,12 @@ def _rewrite_query(query: str) -> str:
         A concise, optimised web search query string (max ~12 words).
     """
     prompt = (
-        "Rewrite the following analyst question as a concise, effective "
-        "web search query of at most 12 words. Return only the rewritten "
-        f"query, nothing else.\n\nQuestion: {query}"
+        "You are an E-Commerce Business Intelligence agent. You must ONLY process queries strictly related "
+        "to e-commerce, retail, market competitors, supply chain, or financial metrics. "
+        "If the following question is UNRELATED to business domains, return EXACTLY: 'REJECTED_DOMAIN'. "
+        "Otherwise, rewrite the analyst question as a concise, effective web search query of at most 12 words. "
+        "Return ONLY the rewritten query or 'REJECTED_DOMAIN'.\n\n"
+        f"Question: {query}"
     )
     search_query: str = get_sub_llm().invoke(prompt).content.strip()
     logger.info("Rewritten search query: %r", search_query)

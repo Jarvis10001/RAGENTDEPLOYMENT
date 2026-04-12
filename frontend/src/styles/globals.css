@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens (dark default) ──────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --color-bg-primary: #0F0F0F;
+  --color-bg-surface: #1A1A1A;
+  --color-bg-elevated: #222222;
+  --color-border: #2A2A2A;
+  --color-border-muted: #1F1F1F;
+  --color-text-primary: #F0F0F0;
+  --color-text-secondary: #A0A0A0;
+  --color-text-muted: #666666;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --color-bg-primary: #FAFAFA;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #F5F5F5;
+  --color-border: #E5E5E5;
+  --color-border-muted: #EFEFEF;
+  --color-text-primary: #171717;
+  --color-text-secondary: #525252;
+  --color-text-muted: #A3A3A3;
+  color-scheme: light;
+}
+
+/* ── Base ───────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ── Selection ─────────────────────────────────────────────────── */
+::selection {
+  background-color: rgba(99, 102, 241, 0.3);
+  color: var(--color-text-primary);
+}
+
+/* ── Prose styles for assistant markdown ────────────────────────── */
+.prose-assistant {
+  line-height: 1.75;
+  color: var(--color-text-primary);
+  font-size: 0.9375rem;
+}
+
+.prose-assistant h1,
+.prose-assistant h2,
+.prose-assistant h3,
+.prose-assistant h4 {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.prose-assistant h1 { font-size: 1.5rem; }
+.prose-assistant h2 { font-size: 1.25rem; }
+.prose-assistant h3 { font-size: 1.125rem; }
+.prose-assistant h4 { font-size: 1rem; }
+
+.prose-assistant p {
+  margin-bottom: 1em;
+}
+
+.prose-assistant ul,
+.prose-assistant ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+
+.prose-assistant li {
+  margin-bottom: 0.25em;
+}
+
+.prose-assistant strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.prose-assistant em {
+  font-style: italic;
+}
+
+.prose-assistant blockquote {
+  border-left: 3px solid #6366F1;
+  padding-left: 1em;
+  color: var(--color-text-secondary);
+  margin-bottom: 1em;
+}
+
+.prose-assistant a {
+  color: #6366F1;
+  text-decoration: none;
+}
+
+.prose-assistant a:hover {
+  text-decoration: underline;
+}
+
+.prose-assistant code:not(pre code) {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.15em 0.4em;
+  font-size: 0.875em;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+}
+
+.prose-assistant hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────── */
+.prose-assistant table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1em;
+  font-size: 0.875rem;
+}
+
+.prose-assistant thead {
+  background: var(--color-bg-elevated);
+}
+
+.prose-assistant th {
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.prose-assistant td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+.prose-assistant tbody tr:nth-child(even) {
+  background: var(--color-bg-surface);
+}
+
+.prose-assistant tbody tr:nth-child(odd) {
+  background: var(--color-bg-primary);
+}
+
+.prose-assistant tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Streaming cursor ──────────────────────────────────────────── */
+.streaming-cursor::after {
+  content: "▎";
+  animation: cursor-blink 1s step-end infinite;
+  color: #6366F1;
+  font-weight: 300;
+  margin-left: 1px;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Focus ring ────────────────────────────────────────────────── */
+.focus-ring:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 2px;
+}
+
+/* ── Textarea auto-resize helper ───────────────────────────────── */
+textarea {
+  resize: none;
+  field-sizing: content;
+}

@@ -85,7 +85,13 @@ After receiving tool results, structure every final answer as:
   **Finding** → **Evidence** (cite numbers and quote customer phrases verbatim) \
 → **Recommended Action**
 
-Always cite source URLs when using web search results."""
+Always cite source URLs when using web search results.
+
+CRITICAL INSTRUCTION FOR GEMINI MODELS: 
+You must strictly adhere to the ReAct format. 
+1. If you need to use a tool, you MUST write "Action: <exact_tool_name>" followed exactly by "Action Input: <input>". Do NOT invent tool names like "Ecommerce Sql Query". Use the exact snake_case tool name provided in the list below.
+2. If you are ready to give the final answer, you MUST write "Final Answer: <your answer>".
+Failure to follow this exact format will break the system."""
 
 
 def get_agent_executor(
@@ -222,6 +228,8 @@ def run_with_classifier(
     # (no cache, no tool calls — just ask the user)
     if needs_clarification(intent):
         logger.info("Returning clarifying question to user.")
+        if executor.memory is not None:
+            executor.memory.save_context({"input": question}, {"output": intent.clarifying_question})
         return {
             "output": intent.clarifying_question,
             "needs_clarification": True,
@@ -249,6 +257,8 @@ def run_with_classifier(
     cached_output = cache.get(response_cache_key)
     if cached_output is not None:
         logger.info("Response-level cache hit — returning deterministic answer.")
+        if executor.memory is not None:
+            executor.memory.save_context({"input": question}, {"output": cached_output})
         return {
             "output": cached_output,
             "needs_clarification": False,
@@ -272,6 +282,56 @@ def run_with_classifier(
         "intent": intent,
         "intermediate_steps": result.get("intermediate_steps", []),
     }
+
+
+def stream_with_classifier(
+    executor: AgentExecutor,
+    question: str,
+    chat_context: str = "",
+):
+    """Synchronous generator version of run_with_classifier for live streaming."""
+    # Step 1: Classify the query
+    try:
+        intent = classify_query(question, chat_context)
+    except Exception as exc:
+        logger.warning("Classifier failed (%s), falling through to agent.", exc)
+        intent = QueryIntent(
+            intent_type="multi_tool", primary_metric=None, required_tools=[],
+            missing_params=[], clarifying_question=None, rewritten_query=question, confidence="low"
+        )
+
+    # Step 2: Clarification
+    if needs_clarification(intent):
+        if executor.memory is not None:
+            executor.memory.save_context({"input": question}, {"output": intent.clarifying_question})
+        yield {"type": "clarification", "output": intent.clarifying_question, "intent": intent}
+        return
+
+    # Step 3: Cache
+    enhanced_input = build_enhanced_input(question, intent)
+    context_hash = hashlib.sha256(chat_context[:500].encode()).hexdigest()[:16] if chat_context else "no_ctx"
+    response_cache_key = cache.make_key(
+        "agent_response", intent.rewritten_query, intent.required_tools, intent.primary_metric, context_hash
+    )
+    
+    cached_output = cache.get(response_cache_key)
+    if cached_output is not None:
+        if executor.memory is not None:
+            executor.memory.save_context({"input": question}, {"output": cached_output})
+        yield {"type": "cache_hit", "output": cached_output, "intent": intent}
+        return
+
+    yield {"type": "intent", "intent": intent}
+
+    # Step 4: Stream the agent loop
+    final_output = "No response generated."
+    for chunk in executor.stream({"input": enhanced_input}):
+        yield {"type": "stream_chunk", "chunk": chunk}
+        if "output" in chunk:
+            final_output = chunk["output"]
+
+    # Step 5: Save to cache
+    cache.set(response_cache_key, final_output, ttl=settings.cache_ttl_seconds)
 
 
 def _inject_system_prefix(prompt: object) -> None:

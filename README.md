@@ -1,264 +1,81 @@
-# E-commerce Intelligence Agent
+# E-Commerce Intelligence Agent
 
-A production-quality multi-agent system that lets business analysts ask
-natural-language questions about their e-commerce operations and receive
-synthesised insights combining structured metrics with qualitative customer
-signals.
+## i. Overview
+**What it does:** This project is a multi-agent system that allows business analysts to ask natural-language questions about their e-commerce operations, generating synthesized insights by intelligently routing queries to a SQL database or the live web.
+**Problem solved:** Modern e-commerce platforms struggle with siloed data, forcing analysts to manually query SQL for sales metrics and then separately scour Google for industry benchmarks. This agent unifies internal querying and external market research into a single conversational interface.
+**Intended users:** E-Commerce Business Analysts, Revenue Operations Teams, and Product Managers.
 
-## Architecture
+## ii. Features
+- **Conversational Memory:** Preserves multi-turn conversation context, allowing users to ask follow-up questions or clarify previous ambiguous queries without losing the thread.
+- **Autonomous Tool Routing:** The agent classifies queries and automatically invokes either the `ecommerce_sql_query` tool (for internal metrics) or the `web_market_search` tool (for external data).
+- **Domain Constraint System:** Web Search requests are strictly restricted; non-business or non-ecommerce queries are automatically rejected by a sub-agent.
+- **Real-Time Streaming:** Built with FastAPI SSE streaming, allowing the user to watch the detailed thinking steps, tool invocations, and text generation natively in real-time.
+- **Dynamic Right-Panel Analysis:** Saves execution snapshots, so users can seamlessly swap between historic conversation logs and see exactly what SQL query or Web Search was run for that specific question.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                       STREAMLIT UI LAYER                            │
-│         Chat interface with streaming + session history              │
-│         Tool activity panel + token usage sidebar                    │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │ user question
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     PRIMARY AGENT (Orchestrator)                     │
-│                                                                      │
-│  LangChain AgentExecutor (LCEL ReAct pattern) with:                 │
-│  • ConversationSummaryBufferMemory (persists across tool calls)      │
-│  • Structured tool routing via tool descriptions                     │
-│  • Model: gemini-2.5-flash-lite (primary orchestrator)            │
-│  • Sub-agent model: gemini-2.5-flash-lite (SQL gen/classification)  │
-│                                                                      │
-│  The primary agent NEVER answers from its own parametric knowledge.  │
-│  It ALWAYS delegates to one or more tools, then synthesises.        │
-└─────┬──────────────────┬──────────────────────┬────────────────────┘
-      │                  │                       │
-      ▼                  ▼                       ▼
-┌──────────┐    ┌─────────────────┐    ┌──────────────────┐
-│  RAG     │    │   SQL AGENT     │    │  TAVILY SEARCH   │
-│  TOOLS   │    │   TOOLS         │    │  TOOL            │
-│          │    │                 │    │                  │
-│ Tool 1:  │    │ Tool 3:         │    │ Tool 5:          │
-│ Omni-    │    │ ecommerce_sql_  │    │ web_market_      │
-│ channel  │    │ query           │    │ search           │
-│ Feedback │    │ (row-level      │    │ (live web data,  │
-│ Search   │    │  lookups)       │    │  benchmarks,     │
-│          │    │                 │    │  competitors)    │
-│ Tool 2:  │    │ Tool 4:         │    │                  │
-│ Marketing│    │ ecommerce_      │    │ Gemini Flash     │
-│ Content  │    │ analytics_query │    │ for query        │
-│ Search   │    │ (aggregations,  │    │ reformulation    │
-│          │    │  cohorts, ROI)  │    │                  │
-│ Gemini   │    │ Gemini Flash    │    └──────────────────┘
-│ Flash +  │    │ for SQL gen +   │
-│ local    │    │ local reranker  │
-│ reranker │    │                 │
-└──────────┘    └─────────────────┘
-      │                  │                       │
-      └──────────────────┴───────────────────────┘
-                         │ all tool results
-                         ▼
-              Primary agent (Gemini Flash Lite) synthesises
-              all tool outputs into final answer
-                         │
-                         ▼
-              Streamlit streams answer to UI
-              Memory updated with Q+A pair
-```
+## iii. Install and run instructions
 
-## Tech Stack
+**Prerequisites:** Python 3.11+, Node 18+
 
-| Component          | Technology                                      |
-|--------------------|------------------------------------------------|
-| UI                 | Streamlit 1.39+ (st.chat_message + streaming)  |
-| Primary Agent      | LangChain AgentExecutor (LCEL ReAct pattern)   |
-| Tools              | LangChain @tool decorated functions            |
-| Memory             | ConversationSummaryBufferMemory (LangChain)    |
-| Primary LLM        | Google Gemini — gemini-2.5-flash-lite          |
-| Sub-agent LLM      | Google Gemini — gemini-2.5-flash-lite          |
-| LLM Class          | ChatGoogleGenerativeAI (langchain-google-genai)|
-| Embeddings         | sentence-transformers all-MiniLM-L6-v2 (local) |
-| Reranker           | cross-encoder/ms-marco-MiniLM-L-6-v2 (local)  |
-| Vector Search      | Supabase pgvector via RPC functions            |
-| Structured Queries | Supabase Python client (parameterised only)    |
-| Web Search         | Tavily Search API                              |
-| Validation         | Pydantic v2 on all tool inputs and outputs     |
-| Config             | pydantic-settings + .env file                  |
-| Caching            | diskcache (disk-backed, no Redis needed)       |
-
-## Prerequisites
-
-1. **Python 3.10+** installed
-2. **Supabase project** with the schema and RPC functions set up
-3. **Google Gemini API key** — free at https://aistudio.google.com/app/apikey
-4. **Tavily API key** — free tier at https://app.tavily.com
-
-## Setup
-
-### 1. Clone and install dependencies
-
+**1. Clone the repository and configure environments**
+Copy the `.env.example` file to create your own `.env` configuration.
 ```bash
-git clone <repo-url>
-cd natwest-hackathon
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
+cp .env.example .env
+```
+
+**2. Obtain Required Credentials**
+You will need to fill out the following inside your `.env` file:
+- `GOOGLE_API_KEY`: Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+- `TAVILY_API_KEY`: Get a free key from [Tavily](https://app.tavily.com/).
+- `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`: From your Supabase project settings.
+
+*Note on Embeddings:* We use `all-MiniLM-L6-v2` locally for document embeddings and reranking. You do not need an API key for this, but the very first time you run the backend, it will download the model files to your machine. This may take a few minutes depending on your internet connection.
+
+**3. Start the Backend (FastAPI)**
+Install python dependencies and launch the Uvicorn server:
+```bash
 pip install -r requirements.txt
+uvicorn api.main:app --reload --port 8000
 ```
 
-### 2. Configure environment
-
+**4. Start the Frontend (React/Vite)**
+In a new terminal, navigate to the `frontend` folder to start the UI:
 ```bash
-copy .env.example .env
-# Edit .env with your actual API keys
+cd frontend
+npm install
+npm run dev
 ```
 
-### 3. Run the Streamlit interface
+The application will be running at `http://localhost:5173`.
 
-```bash
-streamlit run ui/streamlit_app.py
-```
+## iv. Tech Stack
+- **Frontend Framework:** React 18 with Vite, Framer Motion for animations
+- **Backend Framework:** Python FastAPI (using Server-Sent Events)
+- **AI/ML Orchestration:** LangChain (AgentExecutor, ConversationSummaryBufferMemory)
+- **LLM Models:** Google `gemini-3.1-flash-lite-preview`
+- **Database:** Supabase (PostgreSQL)
+- **External APIs:** Tavily Web Search API
 
-The app will open at http://localhost:8501.
+## v. Usage Examples
 
-### 4. Run tests
+**1. Asking for internal metrics:**
+> **Prompt:** "What was our highest selling product category last month?"
+> **Agent Action:** Automatically writes and executes a PostgreSQL query against the Supabase `orders` and `products` tables.
+> **Output:** Shows the exact sales volume and revenue by category.
 
-```bash
-python -m pytest tests/ -v --tb=short
-```
+**2. Asking for external competitor benchmarks:**
+> **Prompt:** "What are the average shipping costs for online retailers in 2025?"
+> **Agent Action:** Bypasses SQL and uses Tavily to search the live web.
+> **Output:** Synthesizes the search results, citing exactly where the data came from with numbered URLs in the Detailed Thinking panel.
 
-## Environment Variables Reference
+## vi. Architecture Notes & Future Improvements
 
-| Variable                 | Required | Default                              | Description                                |
-|--------------------------|----------|--------------------------------------|--------------------------------------------|
-| `SUPABASE_URL`           | ✅       | —                                    | Supabase project URL                       |
-| `SUPABASE_SERVICE_KEY`   | ✅       | —                                    | Supabase service-role key                  |
-| `GOOGLE_API_KEY`         | ✅       | —                                    | Google Gemini API key                      |
-| `TAVILY_API_KEY`         | ✅       | —                                    | Tavily web search API key                  |
-| `PRIMARY_MODEL`          | ❌       | `gemini-3.1-flash-lite-preview`              | Primary orchestrator model                 |
-| `SUB_AGENT_MODEL`        | ❌       | `gemini-3.1-flash-lite-preview`              | Sub-agent model (SQL gen, summarisation)   |
-| `PRIMARY_MAX_TOKENS`     | ❌       | `2048`                               | Max output tokens for primary model        |
-| `SUB_AGENT_MAX_TOKENS`   | ❌       | `600`                                | Max output tokens for sub-agent model      |
-| `EMBEDDING_MODEL`        | ❌       | `all-MiniLM-L6-v2`                  | SentenceTransformer model for embeddings   |
-| `RERANKER_MODEL`         | ❌       | `cross-encoder/ms-marco-MiniLM-L-6-v2` | CrossEncoder model for reranking        |
-| `RAG_RETRIEVE_K`         | ❌       | `20`                                 | Candidates from pgvector search            |
-| `RAG_RERANK_K`           | ❌       | `5`                                  | Results after reranking                    |
-| `MAX_SQL_ROWS`           | ❌       | `10`                                 | Max rows from SQL queries                  |
-| `TAVILY_SEARCH_DEPTH`    | ❌       | `advanced`                           | Tavily depth: `basic` or `advanced`        |
-| `TAVILY_MAX_RESULTS`     | ❌       | `5`                                  | Max web search results                     |
-| `CACHE_ENABLED`          | ❌       | `true`                               | Enable/disable disk cache                  |
-| `CACHE_DIR`              | ❌       | `.cache/responses`                   | Cache directory path                       |
-| `CACHE_TTL_SECONDS`      | ❌       | `3600`                               | Default cache TTL (1 hour)                 |
-| `TAVILY_CACHE_TTL_SECONDS`| ❌      | `1800`                               | Web search cache TTL (30 min)              |
-| `MEMORY_MAX_TOKEN_LIMIT` | ❌       | `2000`                               | Conversation memory token budget           |
-| `PHOENIX_ENABLED`        | ❌       | `false`                              | Arize Phoenix observability                |
-| `LOG_LEVEL`              | ❌       | `INFO`                               | Logging level                              |
-| `DEBUG`                  | ❌       | `false`                              | Verbose debug output                       |
+**Architecture Notes:**
+Our system uses a dual-layer architecture. A React frontend interacts with the FastAPI backend via an asynchronous Server-Sent Event (SSE) stream. Inside FastAPI, questions are pre-processed by a "Classifier Sub-Agent". If the user's intent is clear, it is passed to the Primary LangChain Orchestrator, which uses the ReAct (Reasoning and Acting) framework to choose whether to invoke SQL or Web search tools using LangChain decorators.
 
-## Example Queries and Expected Tool Routing
+**Limitations:**
+- The SQL tool currently relies on a relatively rigid understanding of the Supabase schema context injected in the prompt, which may struggle with highly complex multi-table joins.
+- The user session history is saved in the browser's `localStorage`; switching browsers or devices will reset the conversation thread.
 
-| # | Query | Tools Called |
-|---|-------|-------------|
-| 1 | "Why did our net profit margin drop 12% last month despite 20% more orders?" | `ecommerce_sql_query` + `omnichannel_feedback_search` |
-| 2 | "Which marketing campaigns have CAC above $80 and CTR below 2%?" | `ecommerce_analytics_query` |
-| 3 | "What are customers saying about our packaging in the last 30 days?" | `omnichannel_feedback_search` |
-| 4 | "Compare split shipment rates and freight costs across warehouses" | `ecommerce_analytics_query` |
-| 5 | "Is our SUMMER_SALE campaign messaging aligned with what customers say?" | `marketing_content_search` + `omnichannel_feedback_search` |
-| 6 | "What is the industry average return rate for e-commerce in 2024?" | `web_market_search` |
-| 7 | "Which customers acquired via Instagram have the highest 90-day CLV?" | `ecommerce_analytics_query` |
-| 8 | "High freight costs on SKU-4421 — are customers complaining about it?" | `ecommerce_sql_query` + `omnichannel_feedback_search` |
-
-## Gemini Free Tier Limits and Caching
-
-The Google Gemini free tier has rate limits:
-- **gemini-2.5-flash-lite**: 15 RPM, 1M TPM
-
-**How caching mitigates these:**
-- All tool results are cached to disk via `diskcache` with configurable TTLs
-- Repeated identical queries hit the cache and make **zero** LLM/API calls
-- RAG and SQL caches default to 1-hour TTL; web search to 30-minute TTL
-- Cache is disk-backed and survives server restarts
-- Disable caching by setting `CACHE_ENABLED=false` in `.env`
-
-## Troubleshooting
-
-### Supabase PGRST202 Schema Cache Error
-
-If you see `PGRST202` errors, your Supabase schema cache is stale:
-
-1. Go to **Supabase Dashboard → Settings → API**
-2. Click **Reload schema cache**
-3. Or restart the PostgREST service
-
-### Gemini Quota Exhaustion
-
-If you hit rate limits:
-
-1. Wait 60 seconds and retry
-2. Use narrower filters (specific campaign, date range, SKU) to reduce token usage
-3. Enable caching (`CACHE_ENABLED=true`) to avoid repeated calls
-4. Consider upgrading to a paid Gemini plan for higher limits
-
-### Embedding Model First-Run Download
-
-On first startup, `sentence-transformers` downloads the embedding (~22 MB)
-and reranker (~22 MB) models. This requires internet access and may take
-1-2 minutes. Subsequent starts load from cache (~5 seconds).
-
-### Port Already In Use
-
-If Streamlit says port 8501 is in use:
-
-```bash
-streamlit run ui/streamlit_app.py --server.port 8502
-```
-
-## Project Structure
-
-```
-├── src/
-│   ├── agent/
-│   │   ├── __init__.py
-│   │   └── primary_agent.py        # AgentExecutor + memory wiring
-│   ├── tools/
-│   │   ├── __init__.py
-│   │   ├── rag_tools.py            # Tool 1 + Tool 2 (vector search)
-│   │   ├── sql_tools.py            # Tool 3 + Tool 4 (SQL queries)
-│   │   └── tavily_tool.py          # Tool 5 (web search)
-│   ├── memory/
-│   │   ├── __init__.py
-│   │   └── session_memory.py       # ConversationSummaryBufferMemory factory
-│   ├── db/
-│   │   ├── __init__.py
-│   │   └── supabase_client.py      # Singleton Supabase client
-│   ├── embeddings/
-│   │   ├── __init__.py
-│   │   ├── encoder.py              # SentenceTransformer singleton
-│   │   └── reranker.py             # CrossEncoder singleton
-│   ├── cache/
-│   │   ├── __init__.py
-│   │   └── response_cache.py       # diskcache wrapper
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── tool_inputs.py          # Pydantic v2 input models
-│   │   └── tool_outputs.py         # Pydantic v2 output models
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── token_budget.py         # compress_sql_rows, compress_rag_chunks
-│   │   └── retry.py                # exponential_backoff decorator
-│   └── config.py                   # pydantic-settings Settings class
-├── ui/
-│   ├── __init__.py
-│   └── streamlit_app.py            # Main Streamlit chat interface
-├── tests/
-│   ├── unit/
-│   │   ├── test_rag_tools.py
-│   │   ├── test_sql_tools.py
-│   │   ├── test_tavily_tool.py
-│   │   └── test_token_budget.py
-│   ├── integration/
-│   │   └── test_primary_agent.py
-│   └── conftest.py
-├── assets/
-│   └── sample_data/
-│       ├── feedback_sample.json
-│       └── orders_sample.csv
-├── .env.example
-├── requirements.txt
-└── README.md
-```
+**Future Improvements:**
+- Integrate Supabase Authentication to allow for cross-device, persistent conversation storage.
+- Expand the RAG (Retrieval-Augmented Generation) ingestion scripts to automatically index internal PDF reports for broader context support.
