@@ -29,8 +29,12 @@ from typing import Any, Final
 
 from langchain import hub
 from langchain.agents import AgentExecutor, create_react_agent
+from langchain_core.caches import BaseCache
 from langchain.memory import ConversationSummaryBufferMemory
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Workaround for PydanticUserError with ConversationSummaryBufferMemory
+ConversationSummaryBufferMemory.model_rebuild(_types_namespace={"BaseCache": BaseCache})
 
 from src.cache import response_cache as cache
 from src.config import settings
