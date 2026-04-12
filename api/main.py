@@ -41,10 +41,10 @@ allowed_origins = [
     "http://127.0.0.1:5173",
 ]
 
-# Add production frontend URLs from environment
-frontend_url = os.getenv("FRONTEND_URL")
-if frontend_url:
-    allowed_origins.append(frontend_url)
+# Add production frontend URLs from environment (comma-separated)
+frontend_urls = os.getenv("FRONTEND_URL", "")
+if frontend_urls:
+    allowed_origins.extend([url.strip() for url in frontend_urls.split(",") if url.strip()])
 
 app.add_middleware(
     CORSMiddleware,
