@@ -155,7 +155,11 @@ class Settings(BaseSettings):
     )
     cache_dir: str = Field(
         default=".cache/responses",
-        description="Directory path for diskcache storage.",
+        description="Directory path for diskcache storage (set to empty string to disable on ephemeral filesystems like Render).",
+    )
+    cache_enabled_override: bool | None = Field(
+        default=None,
+        description="Override cache_enabled when set (useful for production on Render where FS is ephemeral).",
     )
     cache_ttl_seconds: int = Field(
         default=3600,

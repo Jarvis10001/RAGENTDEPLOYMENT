@@ -21,6 +21,10 @@ tavily-python==0.5.0
 fastapi
 uvicorn[standard]
 sse-starlette
+gunicorn  # For production deployment on Render
+
+# HTTP client for reranking
+httpx
 
 # Validation
 pydantic==2.9.2
