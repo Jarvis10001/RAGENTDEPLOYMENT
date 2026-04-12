@@ -9,7 +9,7 @@
 - **Conversational Memory:** Preserves multi-turn conversation context, allowing users to ask follow-up questions or clarify previous ambiguous queries without losing the thread.
 - **Autonomous Tool Routing:** The agent classifies queries and automatically invokes either the `ecommerce_sql_query` tool (for internal metrics) or the `web_market_search` tool (for external data).
 - **Domain Constraint System:** Web Search requests are strictly restricted; non-business or non-ecommerce queries are automatically rejected by a sub-agent.
-- **Real-Time Streaming:** Built with FastAPI SSE streaming, allowing the user to watch the detailed thinking steps, tool invocations, and text generation natively in real-time.
+- **Real-Time Streaming:** Built with FastAPI SSE streaming,     allowing the user to watch the detailed thinking steps, tool invocations, and text generation natively in real-time.
 - **Dynamic Right-Panel Analysis:** Saves execution snapshots, so users can seamlessly swap between historic conversation logs and see exactly what SQL query or Web Search was run for that specific question.
 
 ## iii. Install and run instructions

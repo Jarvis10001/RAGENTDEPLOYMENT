@@ -1,59 +1,75 @@
-"""SentenceTransformer embedding encoder singleton.
+"""Google Gemini embedding API encoder.
 
-Lazily loads the ``all-MiniLM-L6-v2`` model (384-dim, ~22 MB) on first
-call and reuses it for all subsequent encode requests.  Embeddings are
-L2-normalised so cosine similarity reduces to a dot product.
+Uses the Google Generative AI API to generate text embeddings.
+No local model loading required — all embeddings are computed server-side.
 
 Thread-safety
 -------------
-Uses double-checked locking so the model is loaded exactly once even
-under Streamlit's concurrent callback model.
+The google-generativeai client is thread-safe and reused for all requests.
 """
 
 from __future__ import annotations
 
 import logging
-import threading
 from typing import TYPE_CHECKING
 
 from src.config import settings
 
 if TYPE_CHECKING:
-    from sentence_transformers import SentenceTransformer
+    import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-_model: SentenceTransformer | None = None
-_model_lock = threading.Lock()
+_client: genai.generativeai.GenerativeAI | None = None
 
 
-def get_encoder() -> SentenceTransformer:
-    """Return the shared SentenceTransformer instance, loading on first call.
-
-    Thread-safe via double-checked locking.
+def get_client():
+    """Return the shared Google Generative AI client, initializing on first call.
 
     Returns:
-        SentenceTransformer: Loaded and ready-to-encode model.
+        google.generativeai.GenerativeAI: Configured API client.
     """
-    global _model
-    if _model is not None:
-        return _model
-    with _model_lock:
-        if _model is None:
-            from sentence_transformers import SentenceTransformer as ST
+    global _client
+    if _client is None:
+        import google.generativeai as genai
 
-            logger.info("Loading embedding model: %s", settings.embedding_model)
-            _model = ST(settings.embedding_model)
-    return _model
+        genai.configure(api_key=settings.google_api_key)
+        _client = genai
+        logger.info("Initialized Google Generative AI client for embeddings")
+    return _client
 
 
 def encode(texts: list[str]) -> list[list[float]]:
-    """Encode a batch of texts into normalised 384-dim embeddings.
+    """Encode a batch of texts using Google's embedding API.
 
     Args:
         texts: List of strings to embed.
 
     Returns:
-        List of embedding vectors, each a list of 384 floats.
+        List of embedding vectors (dimension varies by model, typically 768).
+
+    Raises:
+        ValueError: If texts list is empty or API call fails.
     """
-    return get_encoder().encode(texts, normalize_embeddings=True).tolist()
+    if not texts:
+        raise ValueError("Cannot encode empty list of texts")
+
+    try:
+        client = get_client()
+        embeddings = []
+        
+        # Batch encode texts using Google's API
+        for text in texts:
+            response = client.embed_content(
+                model="models/gemini-embedding-001",
+                content=text,
+                output_dimensionality=768,
+            )
+            embeddings.append(response["embedding"])
+        
+        logger.debug(f"Successfully encoded {len(texts)} texts using Google Embedding API")
+        return embeddings
+        
+    except Exception as e:
+        logger.error(f"Error encoding texts with Google API: {e}")
+        raise

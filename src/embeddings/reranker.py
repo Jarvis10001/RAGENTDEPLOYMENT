@@ -1,50 +1,26 @@
-"""CrossEncoder reranker singleton.
+"""Online Reranker API wrapper.
 
-Lazily loads the ``cross-encoder/ms-marco-MiniLM-L-6-v2`` model on first
-call and exposes a ``rerank()`` helper that scores query–passage pairs
-and returns the top-k indices with their relevance scores.
+Replaces the local memory-heavy CrossEncoder with an external Reranking API.
+Free tier suggestions:
+1. Cohere Rerank (Very generous free trial key for developers: 1K calls/min)
+   - Model: 'rerank-english-v3.0'
+2. Jina AI Reranker (1 million free tokens/month)
+   - Model: 'jina-reranker-v2-base-multilingual'
+3. HuggingFace Inference API (Free but rate-limited/cold starts)
+   - Model: 'cross-encoder/ms-marco-MiniLM-L-6-v2' (your original model)
 
-Thread-safety
--------------
-Uses double-checked locking so the model is loaded exactly once even
-under Streamlit's concurrent callback model.
+This module implements the Cohere API by default as it is fast, highly reliable, 
+and offers a permanent free developer key.
 """
 
 from __future__ import annotations
 
 import logging
-import threading
-from typing import TYPE_CHECKING
+import httpx
 
 from src.config import settings
 
-if TYPE_CHECKING:
-    from sentence_transformers import CrossEncoder
-
 logger = logging.getLogger(__name__)
-
-_reranker: CrossEncoder | None = None
-_reranker_lock = threading.Lock()
-
-
-def get_reranker() -> CrossEncoder:
-    """Return the shared CrossEncoder instance, loading on first call.
-
-    Thread-safe via double-checked locking.
-
-    Returns:
-        CrossEncoder: Loaded and ready-to-predict reranker model.
-    """
-    global _reranker
-    if _reranker is not None:
-        return _reranker
-    with _reranker_lock:
-        if _reranker is None:
-            from sentence_transformers import CrossEncoder as CE
-
-            logger.info("Loading reranker: %s", settings.reranker_model)
-            _reranker = CE(settings.reranker_model)
-    return _reranker
 
 
 def rerank(
@@ -52,7 +28,7 @@ def rerank(
     passages: list[str],
     top_k: int,
 ) -> list[tuple[int, float]]:
-    """Score query–passage pairs and return the top-k by relevance.
+    """Score query-passage pairs using Cohere's API and return the top-k.
 
     Args:
         query: The search query string.
@@ -61,13 +37,45 @@ def rerank(
 
     Returns:
         List of ``(original_index, score)`` tuples sorted by score
-        descending, truncated to *top_k* entries.
+        descending.
     """
     if not passages:
         return []
 
-    pairs = [[query, p] for p in passages]
-    scores = get_reranker().predict(pairs).tolist()
-    indexed: list[tuple[int, float]] = list(enumerate(scores))
-    indexed.sort(key=lambda x: x[1], reverse=True)
-    return indexed[:top_k]
+    # Get API key from settings
+    api_key = getattr(settings, "cohere_api_key", None)
+    if not api_key:
+        logger.warning("COHERE_API_KEY not found in settings! Returning unranked results.")
+        return [(i, 0.0) for i in range(min(top_k, len(passages)))]
+
+    url = "https://api.cohere.com/v1/rerank"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "accept": "application/json",
+    }
+    payload = {
+        "model": settings.reranker_model,  # defaults to "rerank-english-v3.0"
+        "query": query,
+        "documents": passages,
+        "top_n": top_k,
+        "return_documents": False
+    }
+
+    try:
+        with httpx.Client() as client:
+            response = client.post(url, headers=headers, json=payload, timeout=10.0)
+            response.raise_for_status()
+            
+            data = response.json()
+            # Cohere format: [{"index": original_idx, "relevance_score": float}, ...]
+            results = data.get("results", [])
+            
+            indexed = [(item["index"], item["relevance_score"]) for item in results]
+            indexed.sort(key=lambda x: x[1], reverse=True)
+            return indexed
+            
+    except Exception as e:
+        logger.error(f"Reranking API error: {e}")
+        # Fallback gracefully
+        return [(i, 0.0) for i in range(min(top_k, len(passages)))]

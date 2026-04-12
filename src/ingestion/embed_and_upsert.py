@@ -3,7 +3,7 @@
 Handles the ingestion pipeline:
 
 1. Chunk raw text using strategies from :mod:`src.ingestion.chunking`.
-2. Embed each chunk with ``sentence-transformers/all-MiniLM-L6-v2``.
+2. Embed each chunk using Google Generative AI embedding API.
 3. Upsert the (text, embedding) pairs into ``omnichannel_vectors`` or
    ``marketing_vectors`` via the Supabase client.
 """

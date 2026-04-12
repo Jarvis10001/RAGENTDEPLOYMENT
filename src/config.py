@@ -86,14 +86,18 @@ class Settings(BaseSettings):
         description="Tavily web search API key.",
     )
 
-    # ── Embeddings (local — no API key needed) ───────────────────────
+    # ── Embeddings (Google Gemini API) ──────────────────────────────
     embedding_model: str = Field(
-        default="all-MiniLM-L6-v2",
-        description="SentenceTransformer model ID for text embeddings.",
+        default="models/gemini-embedding-001",
+        description="[DEPRECATED] Kept for backward compatibility. Embeddings now use Google Generative AI API (gemini-embedding-001).",
     )
     reranker_model: str = Field(
-        default="cross-encoder/ms-marco-MiniLM-L-6-v2",
-        description="CrossEncoder model ID for semantic reranking.",
+        default="rerank-english-v3.0",
+        description="Cohere Rerank API model ID.",
+    )
+    cohere_api_key: str | None = Field(
+        default=None,
+        description="Cohere Rerank API key. Optional fallback to unranked if not supplied.",
     )
 
     # ── RAG ──────────────────────────────────────────────────────────
