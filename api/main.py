@@ -18,7 +18,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from api.schemas import ChatRequest, ClearResponse, HealthResponse
+from api.schemas import ChatRequest, ClearResponse, HealthResponse, HistoryItem
 from api.session_manager import session_manager
 from src.agent.primary_agent import run_with_classifier, stream_with_classifier
 

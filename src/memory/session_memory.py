@@ -13,7 +13,11 @@ from langchain.memory import ConversationSummaryBufferMemory
 
 # Fix Pydantic v2 forward-reference resolution for BaseCache.
 # See: https://errors.pydantic.dev/2.12/u/class-not-fully-defined
-ConversationSummaryBufferMemory.model_rebuild()
+try:
+    from langchain_core.caches import BaseCache  # noqa: F401 — needed for model_rebuild
+    ConversationSummaryBufferMemory.model_rebuild()
+except Exception:
+    pass  # Already rebuilt or not needed in this environment
 
 from src.config import settings
 from src.llm import get_sub_llm
