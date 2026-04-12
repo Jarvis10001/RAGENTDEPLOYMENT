@@ -14,6 +14,9 @@ import time
 import traceback
 from typing import AsyncGenerator
 
+# Suppress noisy LangChain tracer warnings (benign "No indexed run ID" errors)
+logging.getLogger("langchain_core.callbacks.manager").setLevel(logging.ERROR)
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
