@@ -11,6 +11,10 @@ import logging
 
 from langchain.memory import ConversationSummaryBufferMemory
 
+# Fix Pydantic v2 forward-reference resolution for BaseCache.
+# See: https://errors.pydantic.dev/2.12/u/class-not-fully-defined
+ConversationSummaryBufferMemory.model_rebuild()
+
 from src.config import settings
 from src.llm import get_sub_llm
 
