@@ -11,13 +11,12 @@ Handles the ingestion pipeline:
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Any, Optional
 
-from src.config import get_settings
+from src.config import settings
 from src.db.supabase_client import get_supabase_client
+from src.embeddings.encoder import encode
 from src.ingestion.chunking import semantic_chunk, sliding_window_chunk
-from src.tools.vector_search_tool import embed_query
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ def embed_and_upsert_omnichannel(
 
     records: list[dict[str, Any]] = []
     for chunk in chunks:
-        embedding: list[float] = embed_query(chunk)
+        embedding: list[float] = encode([chunk])[0]
         record: dict[str, Any] = {
             "text_content": chunk,
             "embedding": embedding,
@@ -103,7 +102,7 @@ def embed_and_upsert_marketing(
 
     records: list[dict[str, Any]] = []
     for chunk in chunks:
-        embedding: list[float] = embed_query(chunk)
+        embedding: list[float] = encode([chunk])[0]
         record: dict[str, Any] = {
             "text_content": chunk,
             "embedding": embedding,

@@ -3,11 +3,17 @@
 Lazily loads the ``cross-encoder/ms-marco-MiniLM-L-6-v2`` model on first
 call and exposes a ``rerank()`` helper that scores query–passage pairs
 and returns the top-k indices with their relevance scores.
+
+Thread-safety
+-------------
+Uses double-checked locking so the model is loaded exactly once even
+under Streamlit's concurrent callback model.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from typing import TYPE_CHECKING
 
 from src.config import settings
@@ -18,20 +24,26 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _reranker: CrossEncoder | None = None
+_reranker_lock = threading.Lock()
 
 
 def get_reranker() -> CrossEncoder:
     """Return the shared CrossEncoder instance, loading on first call.
 
+    Thread-safe via double-checked locking.
+
     Returns:
         CrossEncoder: Loaded and ready-to-predict reranker model.
     """
     global _reranker
-    if _reranker is None:
-        from sentence_transformers import CrossEncoder as CE
+    if _reranker is not None:
+        return _reranker
+    with _reranker_lock:
+        if _reranker is None:
+            from sentence_transformers import CrossEncoder as CE
 
-        logger.info("Loading reranker: %s", settings.reranker_model)
-        _reranker = CE(settings.reranker_model)
+            logger.info("Loading reranker: %s", settings.reranker_model)
+            _reranker = CE(settings.reranker_model)
     return _reranker
 
 

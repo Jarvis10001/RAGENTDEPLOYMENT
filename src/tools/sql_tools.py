@@ -20,17 +20,16 @@ from __future__ import annotations
 
 import logging
 import re
-import threading
 from functools import lru_cache
 from typing import Any
 
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.cache import response_cache as cache
 from src.config import settings
 from src.db.supabase_client import get_supabase_client
 from src.models.tool_inputs import AnalyticsQueryInput, SQLQueryInput
+from src.llm import get_sub_llm
 from src.utils.retry import exponential_backoff
 from src.utils.token_budget import compress_sql_rows
 
@@ -58,6 +57,10 @@ _FORBIDDEN_PATTERN: re.Pattern[str] = re.compile(
     re.IGNORECASE,
 )
 
+# ── Input validation patterns ─────────────────────────────────────────
+_SAFE_ID_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9_\-]+$")
+_SAFE_DATE_PATTERN: re.Pattern[str] = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 # ── Schema documentation shared by both tools ─────────────────────────
 _SCHEMA_DOC = """Available tables (PostgreSQL / Supabase):
 
@@ -81,10 +84,6 @@ _SCHEMA_DOC = """Available tables (PostgreSQL / Supabase):
   events_log(event_id uuid PK, customer_id uuid FK, campaign_id text FK,
              event_type text, event_timestamp timestamp)"""
 
-# ── Shared sub-LLM singleton (lazy, thread-safe) ─────────────────────
-_sub_llm: ChatGoogleGenerativeAI | None = None
-_sub_llm_lock = threading.Lock()
-
 _ANALYTICS_GUIDANCE = """
 Additional guidance for analytical queries:
 - Use GROUP BY, DATE_TRUNC, WINDOW functions (LAG, LEAD, ROW_NUMBER), and HAVING freely.
@@ -92,31 +91,14 @@ Additional guidance for analytical queries:
 - Prefer DATE_TRUNC('month', col) or DATE_TRUNC('week', col) for trend analysis.
 - Use ROUND(value, 2) for readable numeric output.
 - Use CTEs (WITH clauses) for complex multi-step analyses.
-"""
 
-_MAX_ITERATIONS_CONST = 8
-
-
-def _get_sub_llm() -> ChatGoogleGenerativeAI:
-    """Return a thread-safe singleton sub-agent LLM for SQL generation.
-
-    The model is created once and reused across all tool calls to avoid
-    re-initialising the client on every query.
-
-    Returns:
-        Shared :class:`ChatGoogleGenerativeAI` instance.
-    """
-    global _sub_llm
-    if _sub_llm is None:
-        with _sub_llm_lock:
-            if _sub_llm is None:
-                _sub_llm = ChatGoogleGenerativeAI(
-                    model=settings.sub_agent_model,
-                    google_api_key=settings.google_api_key,
-                    temperature=0.0,
-                    max_output_tokens=settings.sub_agent_max_tokens,
-                )
-    return _sub_llm
+DETERMINISTIC DEFAULTS (follow these exactly to ensure consistent output):
+- **CRITICAL**: If the user asks for the "best", "top", or "most successful" campaigns/products without specifying a metric, ALWAYS calculate and return BOTH `total_revenue` (SUM of dynamic_price_paid) and `roi` (Total Revenue / Total Spend). Order the results by `total_revenue` DESC by default to provide a consistent baseline.
+- Always alias computed columns with EXACTLY these names: total_revenue, total_spend, roi, avg_margin, order_count, avg_clv, total_freight.
+- When no date range is specified, include ALL available data — do NOT filter by date.
+- Always use COALESCE(value, 0) for SUM aggregations to handle NULLs consistently.
+- For campaign rankings, always JOIN marketing_campaigns with orders on campaign_id.
+- When comparing periods, always use the SAME date granularity (month, week, etc.) consistently."""
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -349,13 +331,13 @@ def _generate_sql(
     table_context = f"\nFocus on table(s): {table_hint}." if table_hint else ""
 
     active_filters: list[str] = []
-    if filter_campaign_id:
+    if filter_campaign_id and _SAFE_ID_PATTERN.match(filter_campaign_id):
         active_filters.append(f"campaign_id = '{filter_campaign_id}'")
-    if filter_product_sku:
+    if filter_product_sku and _SAFE_ID_PATTERN.match(filter_product_sku):
         active_filters.append(f"product_sku = '{filter_product_sku}'")
-    if date_from:
+    if date_from and _SAFE_DATE_PATTERN.match(date_from):
         active_filters.append(f"date >= '{date_from}'")
-    if date_to:
+    if date_to and _SAFE_DATE_PATTERN.match(date_to):
         active_filters.append(f"date <= '{date_to}'")
     filter_clause = (
         f"\nApply these WHERE filters where applicable: {', '.join(active_filters)}."
@@ -372,17 +354,23 @@ Rules:
 - SELECT only. Never generate INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, etc.
 - Always include LIMIT {max_rows}.
 - Use standard PostgreSQL syntax.
-- Use table aliases for readability on JOINs.{table_context}{filter_clause}{extra_guidance}
+- Use table aliases for readability on JOINs.
+- ALWAYS include an explicit ORDER BY clause to ensure deterministic results.
+- Use COALESCE() around nullable aggregations for consistent NULL handling.
+- Alias all computed columns with clear, descriptive names.{table_context}{filter_clause}{extra_guidance}
 
 Question: {question}"""
 
-    response = _get_sub_llm().invoke(prompt)
+    response = get_sub_llm().invoke(prompt)
     sql_query: str = response.content.strip()
 
     # Strip markdown fences that some model versions emit despite instructions
     if sql_query.startswith("```"):
         lines = [ln for ln in sql_query.splitlines() if not ln.strip().startswith("```")]
         sql_query = "\n".join(lines).strip()
+    
+    # Strip any trailing semicolons which cause Supabase RPC syntax errors
+    sql_query = sql_query.rstrip(";")
 
     if not sql_query:
         raise ValueError("Sub-agent LLM returned an empty SQL response.")

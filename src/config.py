@@ -14,10 +14,16 @@ Validation
 from __future__ import annotations
 
 import logging
+import os
 from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Force load .env into os.environ so external libraries (like LangSmith/LangChain) 
+# can read variables like LANGCHAIN_API_KEY that aren't defined in the Settings model.
+load_dotenv(".env")
 
 
 class Settings(BaseSettings):
@@ -110,6 +116,20 @@ class Settings(BaseSettings):
         ge=1,
         le=100,
         description="Maximum rows returned by the SQL tool per query.",
+    )
+
+    # ── Ingestion / Chunking ─────────────────────────────────────────
+    chunk_size: int = Field(
+        default=1000,
+        ge=100,
+        le=5000,
+        description="Maximum characters per text chunk during ingestion.",
+    )
+    chunk_overlap: int = Field(
+        default=200,
+        ge=0,
+        le=1000,
+        description="Character overlap between adjacent chunks.",
     )
 
     # ── Tavily ───────────────────────────────────────────────────────

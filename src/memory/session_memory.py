@@ -10,9 +10,9 @@ from __future__ import annotations
 import logging
 
 from langchain.memory import ConversationSummaryBufferMemory
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.config import settings
+from src.llm import get_sub_llm
 
 logger = logging.getLogger(__name__)
 
@@ -20,21 +20,15 @@ logger = logging.getLogger(__name__)
 def create_memory() -> ConversationSummaryBufferMemory:
     """Create a fresh ConversationSummaryBufferMemory instance.
 
-    Uses Gemini Flash as the summarisation LLM (cheaper and faster than
-    the primary model) to automatically trim older conversational turns
-    when the token budget is exceeded.
+    Uses the shared sub-agent LLM (Gemini Flash) for summarisation,
+    keeping memory lightweight while automatically trimming older
+    conversational turns when the token budget is exceeded.
 
     Returns:
         A configured :class:`ConversationSummaryBufferMemory` ready to
         be passed to an ``AgentExecutor``.
     """
-    sub_llm = ChatGoogleGenerativeAI(
-        model=settings.sub_agent_model,
-        google_api_key=settings.google_api_key,
-        temperature=0.0,
-        max_output_tokens=settings.sub_agent_max_tokens,
-        convert_system_message_to_human=True,
-    )
+    sub_llm = get_sub_llm()
 
     memory = ConversationSummaryBufferMemory(
         llm=sub_llm,

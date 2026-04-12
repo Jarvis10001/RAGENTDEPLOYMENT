@@ -15,7 +15,7 @@ import logging
 import re
 from typing import Optional
 
-from src.config import get_settings
+from src.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,6 @@ def sliding_window_chunk(
     if not text or not text.strip():
         return []
 
-    settings = get_settings()
     size: int = chunk_size if chunk_size is not None else settings.chunk_size
     overlap: int = chunk_overlap if chunk_overlap is not None else settings.chunk_overlap
 
@@ -101,7 +100,6 @@ def semantic_chunk(
     if not text or not text.strip():
         return []
 
-    settings = get_settings()
     size: int = max_chunk_size if max_chunk_size is not None else settings.chunk_size
 
     sentences: list[str] = _split_sentences(text)
@@ -177,7 +175,6 @@ def chunk_chat_transcript(
     if not transcript or not transcript.strip():
         return []
 
-    settings = get_settings()
     size: int = max_chunk_size if max_chunk_size is not None else settings.chunk_size
 
     turn_pattern: re.Pattern[str] = re.compile(

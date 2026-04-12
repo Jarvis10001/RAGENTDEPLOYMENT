@@ -12,41 +12,17 @@ format with URLs → cache write.
 from __future__ import annotations
 
 import logging
-import threading
 from typing import Any
 
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.cache import response_cache as cache
 from src.config import settings
+from src.llm import get_sub_llm
 from src.models.tool_inputs import TavilySearchInput
 from src.utils.retry import exponential_backoff
 
 logger = logging.getLogger(__name__)
-
-# ── Shared sub-LLM singleton (lazy, thread-safe) ─────────────────────
-_sub_llm: ChatGoogleGenerativeAI | None = None
-_sub_llm_lock = threading.Lock()
-
-
-def _get_sub_llm() -> ChatGoogleGenerativeAI:
-    """Return a thread-safe singleton sub-agent LLM for query rewriting.
-
-    Returns:
-        Shared :class:`ChatGoogleGenerativeAI` instance.
-    """
-    global _sub_llm
-    if _sub_llm is None:
-        with _sub_llm_lock:
-            if _sub_llm is None:
-                _sub_llm = ChatGoogleGenerativeAI(
-                    model=settings.sub_agent_model,
-                    google_api_key=settings.google_api_key,
-                    temperature=0.0,
-                    max_output_tokens=100,
-                )
-    return _sub_llm
 
 
 @tool("web_market_search", args_schema=TavilySearchInput)
@@ -119,7 +95,7 @@ def _rewrite_query(query: str) -> str:
         "web search query of at most 12 words. Return only the rewritten "
         f"query, nothing else.\n\nQuestion: {query}"
     )
-    search_query: str = _get_sub_llm().invoke(prompt).content.strip()
+    search_query: str = get_sub_llm().invoke(prompt).content.strip()
     logger.info("Rewritten search query: %r", search_query)
     return search_query or query  # fall back to original if rewriter returns empty
 

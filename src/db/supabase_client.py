@@ -30,7 +30,8 @@ def get_supabase_client() -> Client:
     """Return a singleton Supabase client reused across the application.
 
     The client is created once on first call and protected by a threading
-    lock for safety under Streamlit's threaded callback model.
+    lock for safety under Streamlit's threaded callback model.  Uses
+    double-checked locking so the hot path is lock-free.
 
     Returns:
         A fully-initialised :class:`supabase.Client`.
@@ -40,6 +41,8 @@ def get_supabase_client() -> Client:
             connection cannot be established.
     """
     global _client
+    if _client is not None:
+        return _client
     with _lock:
         if _client is None:
             _client = create_client(
