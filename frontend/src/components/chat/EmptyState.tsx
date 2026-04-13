@@ -71,6 +71,21 @@ export function EmptyState({
             </button>
           ))}
         </motion.div>
+
+        {/* Render Cold Start Notice */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-10 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 flex items-start sm:items-center gap-3 text-sm text-blue-400/90 shadow-sm"
+        >
+          <svg className="w-6 h-6 shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-left">
+            <strong>Heads up!</strong> Since the backend is hosted on Render's free tier, it spins down after a period of inactivity. <strong>Your first request might take up to 50 seconds</strong> to wake the server up, but it will run at normal blazing speeds right after that!
+          </p>
+        </motion.div>
       </div>
     </div>
   );
