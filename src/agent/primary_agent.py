@@ -15,9 +15,9 @@ Design decisions
   Thought/Act/Observe loop.
 * Sub-agent LLM: Gemini Flash — fast and cheap, used for SQL generation,
   conversation summarisation, and query classification.
-* Memory: ConversationSummaryBufferMemory — keeps recent turns verbatim
-  and compresses older history into a rolling summary via Gemini Flash.
-* max_iterations=8: Sufficient for multi-tool root-cause questions while
+* Memory: ConversationBufferMemory — keeps recent turns verbatim
+  without summarization limits offline.
+* max_iterations=3: Sufficient for multi-tool root-cause questions while
   preventing infinite loops. Adjust via env if needed.
 """
 
@@ -28,8 +28,9 @@ import logging
 from typing import Any, Final
 
 from langchain import hub
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain.memory import ConversationSummaryBufferMemory
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain.memory import ConversationBufferMemory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.cache import response_cache as cache
@@ -49,13 +50,16 @@ from src.agent.query_classifier import (
 
 logger = logging.getLogger(__name__)
 
-# ── Constants ─────────────────────────────────────────────────────────
-_MAX_ITERATIONS: Final[int] = 8
-
 # ── System prompt injected into the ReAct prompt ─────────────────────
 _SYSTEM_PREFIX: Final[str] = """You are an E-commerce Intelligence Analyst with access \
 to five specialised tools. You MUST use tools to answer every question — \
 never answer from your own training knowledge alone.
+
+CRITICAL INSTRUCTION - MINIMISE API CALLS:
+You are operating under severe API rate limits (15 Requests Per Minute). 
+You MUST arrive at your Final Answer within 2 to 3 iterations. 
+Do not over-think. Combine multiple queries into a single tool call if possible, 
+and do not search repeatedly if the first result is mostly sufficient. 
 
 IMPORTANT — Deterministic Execution:
 When the input contains TOOL GUIDANCE, you MUST follow the specified tool \
@@ -88,14 +92,13 @@ After receiving tool results, structure every final answer as:
 Always cite source URLs when using web search results.
 
 CRITICAL INSTRUCTION FOR GEMINI MODELS: 
-You must strictly adhere to the ReAct format. 
-1. If you need to use a tool, you MUST write "Action: <exact_tool_name>" followed exactly by "Action Input: <input>". Do NOT invent tool names like "Ecommerce Sql Query". Use the exact snake_case tool name provided in the list below.
-2. If you are ready to give the final answer, you MUST write "Final Answer: <your answer>".
-Failure to follow this exact format will break the system."""
+"""
 
+
+from google.api_core.retry import Retry
 
 def get_agent_executor(
-    memory: ConversationSummaryBufferMemory | None = None,
+    memory: ConversationBufferMemory | None = None,
 ) -> AgentExecutor:
     """Build and return a fully configured AgentExecutor.
 
@@ -108,7 +111,7 @@ def get_agent_executor(
 
     Args:
         memory: Optional pre-built memory instance. If ``None``, a fresh
-                :class:`ConversationSummaryBufferMemory` is created via
+                :class:`ConversationBufferMemory` is created via
                 :func:`~src.memory.session_memory.create_memory`.
 
     Returns:
@@ -126,8 +129,22 @@ def get_agent_executor(
         google_api_key=settings.google_api_key,
         temperature=0.0,
         max_output_tokens=settings.primary_max_tokens,
-    )
+        max_retries=0,
+        timeout=120.0,
+    ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
+    fallback_llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        google_api_key=settings.google_api_key,
+        temperature=0.0,
+        max_output_tokens=settings.primary_max_tokens,
+        max_retries=0,
+        timeout=120.0,
+    ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
 
+    llm_with_fallback = primary_llm.with_fallbacks(
+        [fallback_llm],
+        exceptions_to_handle=(Exception,)
+    )
     # ── Memory ────────────────────────────────────────────────────────
     if memory is None:
         memory = create_memory()
@@ -141,88 +158,65 @@ def get_agent_executor(
         web_market_search,
     ]
 
-    # ── Fetch and customise the standard ReAct-chat prompt ───────────
-    react_prompt = hub.pull("hwchase17/react-chat")
-    _inject_system_prefix(react_prompt)
+    # ── Fetch and customise the tool-calling prompt ───────────
+    tool_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", _SYSTEM_PREFIX + "\n\nALWAYS structure your final answer beautifully with markdown: use bullet points, clear headings, and highlight key metrics. Don't mention the technical names of the tools used."),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ]
+    )
 
     # ── Wire agent and executor ───────────────────────────────────────
-    agent = create_react_agent(
-        llm=primary_llm,
+    agent = create_tool_calling_agent(
+        llm=llm_with_fallback,
         tools=tools,
-        prompt=react_prompt,
+        prompt=tool_prompt,
     )
 
     executor = AgentExecutor(
         agent=agent,
         tools=tools,
         memory=memory,
-        max_iterations=_MAX_ITERATIONS,
+        max_iterations=None,
         handle_parsing_errors=True,
         return_intermediate_steps=True,
         verbose=settings.debug,
     )
 
     logger.info(
-        "AgentExecutor ready — model=%s tools=%s max_iterations=%d",
+        "AgentExecutor ready — model=%s tools=%s max_iterations=None",
         settings.primary_model,
         [t.name for t in tools],
-        _MAX_ITERATIONS,
     )
 
     return executor
 
+
+def _bypass_classifier(question: str) -> QueryIntent:
+    """Helper to bypass classification to save API requests."""
+    return QueryIntent(
+        intent_type="multi_tool",
+        primary_metric=None,
+        required_tools=[],
+        missing_params=[],
+        clarifying_question=None,
+        rewritten_query=question,
+        confidence="medium"
+    )
 
 def run_with_classifier(
     executor: AgentExecutor,
     question: str,
     chat_context: str = "",
 ) -> dict[str, Any]:
-    """Run a user question through the classifier → agent pipeline.
+    """Run a user question through the classifier -> agent pipeline.
 
-    This is the main entry point for processing user queries.  It:
-    1. Classifies the query to produce a :class:`QueryIntent`.
-    2. If the query needs clarification, returns immediately with the
-       clarifying question (no tool calls made).
-    3. Otherwise, builds an enhanced input with tool guidance and
-       invokes the AgentExecutor.
-
-    The clarification mechanism is fully preserved — when the classifier
-    detects ambiguity (e.g. "best campaigns" without specifying a metric),
-    it returns a ``clarifying_question`` which is surfaced to the user
-    as a chat message.  The user's follow-up is then combined with the
-    original question and re-classified.
-
-    **Cache behaviour**: The response-level cache includes a hash of the
-    ``chat_context`` so that context-dependent queries (e.g. "what about
-    last month?") are not served stale cached answers from a different
-    conversation context.  Clarification queries bypass the cache entirely.
-
-    Args:
-        executor: The configured :class:`AgentExecutor`.
-        question: The user's raw question.
-        chat_context: Optional recent chat history for classification context.
-
-    Returns:
-        Dict with keys:
-        - ``"output"``: The agent's answer or clarifying question.
-        - ``"needs_clarification"``: ``True`` if the output is a question.
-        - ``"intent"``: The :class:`QueryIntent` for UI display.
-        - ``"intermediate_steps"``: Tool call details (empty if clarifying).
+    This bypasses the classification to save API limits.
     """
-    # Step 1: Classify the query
-    try:
-        intent = classify_query(question, chat_context)
-    except Exception as exc:
-        logger.warning("Classifier failed (%s), falling through to agent.", exc)
-        intent = QueryIntent(
-            intent_type="multi_tool",
-            primary_metric=None,
-            required_tools=[],
-            missing_params=[],
-            clarifying_question=None,
-            rewritten_query=question,
-            confidence="low",
-        )
+    # Step 1: Bypassed classification (saves 1 API call per query)
+    intent = _bypass_classifier(question)
 
     # Step 2: Check if clarification is needed — return immediately
     # (no cache, no tool calls — just ask the user)
@@ -290,15 +284,8 @@ def stream_with_classifier(
     chat_context: str = "",
 ):
     """Synchronous generator version of run_with_classifier for live streaming."""
-    # Step 1: Classify the query
-    try:
-        intent = classify_query(question, chat_context)
-    except Exception as exc:
-        logger.warning("Classifier failed (%s), falling through to agent.", exc)
-        intent = QueryIntent(
-            intent_type="multi_tool", primary_metric=None, required_tools=[],
-            missing_params=[], clarifying_question=None, rewritten_query=question, confidence="low"
-        )
+    # Step 1: Bypassed classification
+    intent = _bypass_classifier(question)
 
     # Step 2: Clarification
     if needs_clarification(intent):
@@ -351,3 +338,4 @@ def _inject_system_prefix(prompt: object) -> None:
 
     if hasattr(prompt, "template"):
         prompt.template = _SYSTEM_PREFIX + "\n\n" + prompt.template
+

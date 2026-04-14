@@ -215,7 +215,7 @@ def _run_rag_pipeline(
         return f"{tool_name} failed: {type(e).__name__}: {e}"
 
 
-@exponential_backoff(max_retries=3, base_delay_seconds=2.0)
+@exponential_backoff(max_retries=0, base_delay_seconds=2.0)
 def _execute_vector_rpc(
     function_name: str,
     params: dict[str, Any],

@@ -190,7 +190,13 @@ def ecommerce_sql_query(
 
     except Exception as e:
         logger.error("ecommerce_sql_query failed: %s: %s", type(e).__name__, e)
-        return f"ecommerce_sql_query failed: {type(e).__name__}: {e}"
+        error_msg = f"ecommerce_sql_query failed: {type(e).__name__}: {e}"
+        try:
+            if 'sql_query' in locals() and sql_query:
+                error_msg += f"\nGenerated SQL that caused error:\n{sql_query}\n(Tip: Instruct the sub-agent to fix this specific syntax error by including it in your question.)"
+        except Exception:
+            pass
+        return error_msg
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -290,7 +296,13 @@ def ecommerce_analytics_query(
 
     except Exception as e:
         logger.error("ecommerce_analytics_query failed: %s: %s", type(e).__name__, e)
-        return f"ecommerce_analytics_query failed: {type(e).__name__}: {e}"
+        error_msg = f"ecommerce_analytics_query failed: {type(e).__name__}: {e}"
+        try:
+            if 'sql_query' in locals() and sql_query:
+                error_msg += f"\nGenerated SQL that caused error:\n{sql_query}\n(Tip: Instruct the sub-agent to fix this specific syntax error by explicitly telling it what to avoid in your question.)"
+        except Exception:
+            pass
+        return error_msg
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -298,7 +310,7 @@ def ecommerce_analytics_query(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@exponential_backoff(max_retries=3, base_delay_seconds=2.0)
+@exponential_backoff(max_retries=0, base_delay_seconds=2.0)
 def _generate_sql(
     question: str,
     max_rows: int,
@@ -361,13 +373,15 @@ Rules:
 
 Question: {question}"""
 
+    import re
     response = get_sub_llm().invoke(prompt)
-    sql_query: str = response.content.strip()
+    sql_query: str = str(response.content).strip()
 
-    # Strip markdown fences that some model versions emit despite instructions
-    if sql_query.startswith("```"):
-        lines = [ln for ln in sql_query.splitlines() if not ln.strip().startswith("```")]
-        sql_query = "\n".join(lines).strip()
+    match = re.search(r"```(?:sql)?\n?(.*?)\n?```", sql_query, flags=re.IGNORECASE | re.DOTALL)
+    if match:
+        sql_query = match.group(1).strip()
+        
+    sql_query = "\n".join([ln for ln in sql_query.splitlines() if not ln.strip().startswith("```")]).strip()
     
     # Strip any trailing semicolons which cause Supabase RPC syntax errors
     sql_query = sql_query.rstrip(";")
@@ -410,7 +424,7 @@ def _validate_sql(sql_query: str) -> None:
         )
 
 
-@exponential_backoff(max_retries=3, base_delay_seconds=2.0)
+@exponential_backoff(max_retries=0, base_delay_seconds=2.0)
 def _execute_sql(sql_query: str) -> list[dict[str, Any]]:
     """Execute a validated SELECT query against Supabase via the read-only RPC.
 

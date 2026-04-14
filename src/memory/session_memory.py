@@ -1,7 +1,6 @@
-"""Session memory factory using LangChain ConversationSummaryBufferMemory.
+"""Session memory factory using LangChain ConversationBufferMemory.
 
-Provides a factory function that creates memory instances backed by
-Google Gemini Flash for summarisation.  The AgentExecutor uses this
+Provides a factory function that creates memory instances. The AgentExecutor uses this
 memory to maintain cross-turn context within an analyst session.
 """
 
@@ -9,57 +8,27 @@ from __future__ import annotations
 
 import logging
 
-from langchain.memory import ConversationSummaryBufferMemory
+from langchain.memory import ConversationBufferMemory
 from langchain_core.caches import BaseCache  # noqa: F401 — required for Pydantic v2 forward-ref resolution
-from langchain_core.callbacks.manager import Callbacks  # noqa: F401 — required for Pydantic v2 forward-ref resolution
+from langchain_core.callbacks.manager import Callbacks  # noqa: F401 — required for Pydantic v2 forward-ref
 
 from src.config import settings
-from src.llm import get_sub_llm
 
 logger = logging.getLogger(__name__)
 
-_model_rebuilt = False
-
-
-def create_memory() -> ConversationSummaryBufferMemory:
-    """Create a fresh ConversationSummaryBufferMemory instance.
-
-    Uses the shared sub-agent LLM (Gemini Flash) for summarisation,
-    keeping memory lightweight while automatically trimming older
-    conversational turns when the token budget is exceeded.
+def create_memory() -> ConversationBufferMemory:
+    """Create a fresh ConversationBufferMemory instance.
 
     Returns:
-        A configured :class:`ConversationSummaryBufferMemory` ready to
+        A configured :class:`ConversationBufferMemory` ready to
         be passed to an ``AgentExecutor``.
     """
-    # Resolve Pydantic v2 forward references (BaseCache, Callbacks) before first instantiation.
-    # Must pass _types_namespace explicitly so Pydantic can find the types.
-    global _model_rebuilt
-    if not _model_rebuilt:
-        ConversationSummaryBufferMemory.model_rebuild(
-            _types_namespace={
-                "BaseCache": BaseCache,
-                "Callbacks": Callbacks,
-            },
-            force=True,
-        )
-        _model_rebuilt = True
-        logger.debug("ConversationSummaryBufferMemory.model_rebuild() succeeded.")
-
-    sub_llm = get_sub_llm()
-
-    memory = ConversationSummaryBufferMemory(
-        llm=sub_llm,
-        max_token_limit=settings.memory_max_token_limit,
+    memory = ConversationBufferMemory(
         memory_key="chat_history",
         return_messages=True,
         output_key="output",
     )
 
-    logger.info(
-        "ConversationSummaryBufferMemory created — max_tokens=%d model=%s",
-        settings.memory_max_token_limit,
-        settings.sub_agent_model,
-    )
+    logger.info("ConversationBufferMemory created (bypassed summarization limit)")
     return memory
 

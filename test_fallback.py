@@ -1,0 +1,1 @@
+import asyncio; from src.config import settings; from langchain_google_genai import ChatGoogleGenerativeAI; from google.api_core.retry import Retry; m = ChatGoogleGenerativeAI(model='gemini-2.0-flash', google_api_key=settings.google_api_key, max_retries=0).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0)); print(m.invoke('hi'))

@@ -15,20 +15,23 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import Any
+from google.api_core.retry import Retry
 
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.runnables import Runnable
 
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
-_sub_llm: ChatGoogleGenerativeAI | None = None
+_sub_llm: Runnable | None = None
 _sub_llm_lock = threading.Lock()
 
 
 def get_sub_llm(
     max_output_tokens: int | None = None,
-) -> ChatGoogleGenerativeAI:
+) -> Runnable:
     """Return a shared sub-agent LLM, creating it on first call.
 
     The singleton is configured with ``settings.sub_agent_model`` at
@@ -55,11 +58,26 @@ def get_sub_llm(
     with _sub_llm_lock:
         if _sub_llm is None:
             tokens = max_output_tokens or settings.sub_agent_max_tokens
-            _sub_llm = ChatGoogleGenerativeAI(
+            main_llm = ChatGoogleGenerativeAI(
                 model=settings.sub_agent_model,
                 google_api_key=settings.google_api_key,
                 temperature=0.0,
                 max_output_tokens=tokens,
+                max_retries=0,
+                timeout=120.0,
+            ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
+            fallback_llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                google_api_key=settings.google_api_key,
+                temperature=0.0,
+                max_output_tokens=tokens,
+                max_retries=0,
+                timeout=120.0,
+            ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
+
+            _sub_llm = main_llm.with_fallbacks(
+                [fallback_llm],
+                exceptions_to_handle=(Exception,)
             )
             logger.info(
                 "Sub-agent LLM initialised — model=%s max_tokens=%d",
@@ -67,3 +85,4 @@ def get_sub_llm(
                 tokens,
             )
     return _sub_llm
+

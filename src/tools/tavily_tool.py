@@ -83,7 +83,7 @@ def web_market_search(
         return f"web_market_search failed: {type(e).__name__}: {e}"
 
 
-@exponential_backoff(max_retries=3, base_delay_seconds=2.0)
+@exponential_backoff(max_retries=0, base_delay_seconds=2.0)
 def _rewrite_query(query: str) -> str:
     """Use Gemini Flash to rewrite an analyst question into an optimal web search query.
 
@@ -106,7 +106,7 @@ def _rewrite_query(query: str) -> str:
     return search_query or query  # fall back to original if rewriter returns empty
 
 
-@exponential_backoff(max_retries=3, base_delay_seconds=2.0)
+@exponential_backoff(max_retries=0, base_delay_seconds=2.0)
 def _execute_tavily_search(
     search_query: str,
     search_depth: str,
