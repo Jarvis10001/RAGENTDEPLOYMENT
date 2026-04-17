@@ -24,8 +24,47 @@ Design decisions
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from typing import Any, Final
+
+# --- Monkeypatch JSON for langchain_google_genai Extra data errors ---
+_original_loads = json.loads
+def _patched_loads(s, *args, **kwargs):
+    try:
+        return _original_loads(s, *args, **kwargs)
+    except json.JSONDecodeError as e:
+        if isinstance(s, str) and "Extra data" in str(e):
+            try:
+                # Attempt to parse up to the point of extra data
+                return _original_loads(s[:e.pos].strip(), *args, **kwargs)
+            except Exception:
+                pass
+        raise
+json.loads = _patched_loads
+
+# --- Monkeypatch langchain_google_genai to fix empty tool names ---
+try:
+    import langchain_google_genai.chat_models as genai_models
+    _original_parse_chat_history = genai_models._parse_chat_history
+
+    def _patched_parse_chat_history(*args, **kwargs):
+        system_instruction, history = _original_parse_chat_history(*args, **kwargs)
+        for content in history:
+            if hasattr(content, "parts"):
+                for part in content.parts:
+                    if hasattr(part, "function_response") and part.function_response:
+                        if not part.function_response.name:
+                            part.function_response.name = "unknown_tool"
+                    elif hasattr(part, "function_call") and part.function_call:
+                        if not part.function_call.name:
+                            part.function_call.name = "unknown_tool"
+        return system_instruction, history
+
+    genai_models._parse_chat_history = _patched_parse_chat_history
+except ImportError:
+    pass
+# ---------------------------------------------------------------------
 
 from langchain import hub
 from langchain.agents import AgentExecutor, create_tool_calling_agent

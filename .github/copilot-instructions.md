@@ -40,6 +40,9 @@ You are working on the "E-Commerce Intelligence Agent" project, a multi-agent sy
    - Retain conversational memory for follow-up questions and context preservation.
 
 ## Development Workflow
-- Backend runs on `localhost:8000` via `uvicorn api.main:app --reload`.
-- Frontend runs on `localhost:5173` via Vite (`npm run dev`).
-- Ensure environment variables (`GOOGLE_API_KEY`, `TAVILY_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`) are properly mocked/loaded in `.env`.
+- **Backend**: Runs on `localhost:8000` via `uvicorn api.main:app --reload`. Make sure the `.env` file at the root contains your API keys (Google API, Supabase, etc.) and sets `FRONTEND_URL=http://localhost:5173`.
+- **Frontend**: Runs on `localhost:5173` via Vite (`npm run dev`). Make sure the `.env` file in the `/frontend/` folder contains `VITE_API_URL=http://localhost:8000`.
+- Ensure environment variables are properly loaded so that the application points to your local setup instead of the hosted backend.
+
+## AI Agent Rules
+- **Tool Usage**: Do not use scripts or terminal commands to explore or modify code. Perform all file analyses, edits, and changes directly yourself using the configured file editing tools.
