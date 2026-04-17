@@ -1,10 +1,30 @@
 {
   "version": 1,
   "skills": {
+    "antv-g2-chart": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "552bc5e31828ad9435e7198a1861df5b0de02ceed33b2241211f486cdce692a6"
+    },
+    "antv-s2-expert": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "987abfafbc863d38d5e21a95a229ca75caf7b578d4cd62b6e4f840aacf2d9810"
+    },
+    "antv-skills-maintainer": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "00c9c6f069287759f6789fd30eff614b229f5a863a455a9927d967d76d91afea"
+    },
     "building-pydantic-ai-agents": {
       "source": "pydantic/skills",
       "sourceType": "github",
       "computedHash": "8f2e7d4ad587bb9ff6d41391aecff6300508020dcb4f37ed2acb00d0cf5a44f9"
+    },
+    "chart-visualization": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "23f0cd837bcef40b5d84e9f9e24de1f010fa2aa9bcc01ad3b5fd71d082f576c6"
     },
     "deep-agents-core": {
       "source": "langchain-ai/langchain-skills",
@@ -25,6 +45,16 @@
       "source": "langchain-ai/langchain-skills",
       "sourceType": "github",
       "computedHash": "70355c49d4ea25553a67306ce07ad2b808b85d917bb310fe12a76abf1d7b880b"
+    },
+    "icon-retrieval": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "b26dbc91111156c7f345b7e09342c33e8731e92ae1da2519078ad9975a98eb0b"
+    },
+    "infographic-creator": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "7ba6710d1e2eab14018d676a32ad569afca03d52396d75cb772b97de72e88efc"
     },
     "instrumentation": {
       "source": "pydantic/skills",
@@ -65,6 +95,11 @@
       "source": "langchain-ai/langchain-skills",
       "sourceType": "github",
       "computedHash": "41777ec7edc4504e45564917459202021245f3cdf90157e4a65dd6641cd0c1d7"
+    },
+    "narrative-text-visualization": {
+      "source": "antvis/chart-visualization-skills",
+      "sourceType": "github",
+      "computedHash": "1aaec6dd2ec2cf6557876ad74577a6e3ae76bd809f6f08c892f2cd6416eb0fb4"
     },
     "supabase": {
       "source": "supabase/agent-skills",
