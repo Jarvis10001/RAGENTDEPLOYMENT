@@ -1,91 +1,173 @@
 /**
- * EmptyState — centered landing view when no conversation is active.
+ * EmptyState — premium landing view when no conversation is active.
  *
- * Large heading, subtitle, and a 2-column grid of 6 example question cards.
+ * Features:
+ * - Animated gradient orbs background
+ * - Gradient text heading
+ * - Icon-enriched question cards with staggered animations
+ * - Responsive grid (3-col desktop, 2 tablet, 1 mobile)
  */
 
 import { motion } from "framer-motion";
+import {
+  IconBarChart,
+  IconTrendingUp,
+  IconMessageSquare,
+  IconPackage,
+  IconGlobe,
+  IconTarget,
+} from "../ui/icons";
 
 interface EmptyStateProps {
   onSelectQuestion: (question: string) => void;
 }
 
 const EXAMPLE_QUESTIONS = [
-  "Why did net profit margin drop last month?",
-  "Which campaigns have the best ROI?",
-  "What are customers saying about packaging?",
-  "Compare freight costs across warehouses",
-  "How does our return rate compare to industry?",
-  "Is our campaign messaging aligned with feedback?",
+  {
+    text: "Why did net profit margin drop last month?",
+    icon: IconTrendingUp,
+    gradient: "from-red-500/20 to-orange-500/20",
+    iconColor: "text-red-400",
+  },
+  {
+    text: "Which campaigns have the best ROI?",
+    icon: IconTarget,
+    gradient: "from-indigo-500/20 to-purple-500/20",
+    iconColor: "text-indigo-400",
+  },
+  {
+    text: "What are customers saying about packaging?",
+    icon: IconMessageSquare,
+    gradient: "from-emerald-500/20 to-teal-500/20",
+    iconColor: "text-emerald-400",
+  },
+  {
+    text: "Compare freight costs across warehouses",
+    icon: IconPackage,
+    gradient: "from-amber-500/20 to-yellow-500/20",
+    iconColor: "text-amber-400",
+  },
+  {
+    text: "How does our return rate compare to industry?",
+    icon: IconGlobe,
+    gradient: "from-cyan-500/20 to-blue-500/20",
+    iconColor: "text-cyan-400",
+  },
+  {
+    text: "Show revenue breakdown by campaign channel",
+    icon: IconBarChart,
+    gradient: "from-pink-500/20 to-rose-500/20",
+    iconColor: "text-pink-400",
+  },
 ] as const;
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: (idx: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.4,
+      delay: 0.2 + idx * 0.08,
+      ease: "easeOut",
+    },
+  }),
+};
 
 export function EmptyState({
   onSelectQuestion,
 }: EmptyStateProps): React.ReactElement {
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
-      <div className="max-w-2xl w-full">
+    <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="orb w-[300px] h-[300px] bg-indigo-500 -top-20 -right-20" />
+      <div
+        className="orb w-[250px] h-[250px] bg-purple-500 bottom-10 -left-16"
+        style={{ animationDelay: "4s" }}
+      />
+      <div
+        className="orb w-[200px] h-[200px] bg-pink-500 top-1/3 right-1/4"
+        style={{ animationDelay: "8s" }}
+      />
+
+      <div className="max-w-3xl w-full relative z-10">
         {/* Heading */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="text-center mb-10"
+          transition={{ duration: 0.5 }}
+          className="text-center mb-12"
         >
-          <div className="flex justify-center items-center gap-2 mb-4">
-            <span className="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full text-xs font-bold text-accent tracking-widest uppercase">
-              E-Commerce Intelligence Agent
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 mb-6 rounded-full border border-accent/20 bg-accent/5"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+            <span className="text-xs font-semibold text-accent tracking-widest uppercase">
+              Intelligence Agent
             </span>
-          </div>
-          <h1 className="text-3xl font-semibold text-text-primary mb-3">
-            What would you like to analyse?
+          </motion.div>
+
+          <h1 className="text-4xl md:text-5xl font-bold text-text-primary mb-4 tracking-tight">
+            What would you like to{" "}
+            <span className="gradient-text">analyse</span>?
           </h1>
-          <p className="text-base text-text-secondary">
-            Ask anything about revenue, campaigns, or customer feedback
+          <p className="text-base md:text-lg text-text-secondary max-w-lg mx-auto">
+            Ask anything about revenue, campaigns, customer feedback, or market trends
           </p>
         </motion.div>
 
         {/* Question grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-        >
-          {EXAMPLE_QUESTIONS.map((question, idx) => (
-            <button
-              key={idx}
-              onClick={() => onSelectQuestion(question)}
-              className="
-                text-left p-4 rounded-card
-                border border-border bg-bg-surface
-                hover:border-accent/40 hover:bg-bg-elevated
-                transition-all duration-200
-                focus-ring
-                group
-              "
-            >
-              <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors">
-                {question}
-              </span>
-            </button>
-          ))}
-        </motion.div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {EXAMPLE_QUESTIONS.map((q, idx) => {
+            const Icon = q.icon;
+            return (
+              <motion.button
+                key={idx}
+                custom={idx}
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onSelectQuestion(q.text)}
+                className={`
+                  text-left p-4 rounded-xl
+                  border border-border bg-bg-surface/80
+                  hover:border-accent/30 hover:shadow-glow
+                  transition-all duration-300
+                  focus-ring group cursor-pointer
+                  backdrop-blur-sm
+                `}
+              >
+                <div
+                  className={`
+                    w-9 h-9 rounded-lg flex items-center justify-center mb-3
+                    bg-gradient-to-br ${q.gradient}
+                    group-hover:scale-110 transition-transform duration-300
+                  `}
+                >
+                  <Icon size={18} className={q.iconColor} />
+                </div>
+                <span className="text-sm text-text-secondary group-hover:text-text-primary transition-colors leading-relaxed">
+                  {q.text}
+                </span>
+              </motion.button>
+            );
+          })}
+        </div>
 
-        {/* Render Cold Start Notice */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-10 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 flex items-start sm:items-center gap-3 text-sm text-blue-400/90 shadow-sm"
+        {/* Subtle footer hint */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+          className="text-center text-xs text-text-muted mt-10"
         >
-          <svg className="w-6 h-6 shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-left">
-            <strong>Heads up!</strong> Since the backend is hosted on Render's free tier, it spins down after a period of inactivity. <strong>Your first request might take up to 50 seconds</strong> to wake the server up, but it will run at normal blazing speeds right after that!
-          </p>
-        </motion.div>
+          Powered by RAG + SQL analytics • Charts generated automatically
+        </motion.p>
       </div>
     </div>
   );

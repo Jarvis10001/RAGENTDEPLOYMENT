@@ -23,13 +23,13 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from langchain.tools import tool
+from langchain_classic.tools import tool
 
 from src.cache import response_cache as cache
 from src.config import settings
 from src.db.supabase_client import get_supabase_client
+from src.llm import extract_text, get_sub_llm
 from src.models.tool_inputs import AnalyticsQueryInput, SQLQueryInput
-from src.llm import get_sub_llm
 from src.utils.retry import exponential_backoff
 from src.utils.token_budget import compress_sql_rows
 
@@ -373,16 +373,15 @@ Rules:
 
 Question: {question}"""
 
-    import re
-    response = get_sub_llm().invoke(prompt)
-    sql_query: str = str(response.content).strip()
+    response = get_sub_llm(max_output_tokens=600).invoke(prompt)
+    sql_query = extract_text(response.content).strip()
 
+    import re
     match = re.search(r"```(?:sql)?\n?(.*?)\n?```", sql_query, flags=re.IGNORECASE | re.DOTALL)
     if match:
         sql_query = match.group(1).strip()
         
     sql_query = "\n".join([ln for ln in sql_query.splitlines() if not ln.strip().startswith("```")]).strip()
-    
     # Strip any trailing semicolons which cause Supabase RPC syntax errors
     sql_query = sql_query.rstrip(";")
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from langchain.memory import ConversationBufferMemory
+from langchain_classic.memory import ConversationBufferMemory
 from langchain_core.caches import BaseCache  # noqa: F401 — required for Pydantic v2 forward-ref resolution
 from langchain_core.callbacks.manager import Callbacks  # noqa: F401 — required for Pydantic v2 forward-ref
 

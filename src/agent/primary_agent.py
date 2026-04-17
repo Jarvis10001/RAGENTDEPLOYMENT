@@ -66,9 +66,9 @@ except ImportError:
     pass
 # ---------------------------------------------------------------------
 
-from langchain import hub
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.memory import ConversationBufferMemory
+from langchain_classic import hub
+from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
+from langchain_classic.memory import ConversationBufferMemory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -88,6 +88,24 @@ from src.agent.query_classifier import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_text(output: object) -> str:
+    """Normalize Gemini output to a plain string.
+
+    ``include_thoughts=True`` wraps the response in a list of content-block
+    dicts.  This function extracts only the plain-text parts.
+    """
+    if isinstance(output, str):
+        return output
+    if isinstance(output, list):
+        parts = [
+            block.get("text", "")
+            for block in output
+            if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+        ]
+        return "".join(parts).strip() or "No response generated."
+    return str(output)
 
 # ── System prompt injected into the ReAct prompt ─────────────────────
 _SYSTEM_PREFIX: Final[str] = """You are an E-commerce Intelligence Analyst with access \
@@ -170,6 +188,7 @@ def get_agent_executor(
         max_output_tokens=settings.primary_max_tokens,
         max_retries=0,
         timeout=120.0,
+        include_thoughts=True,
     ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
     fallback_llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
@@ -178,6 +197,7 @@ def get_agent_executor(
         max_output_tokens=settings.primary_max_tokens,
         max_retries=0,
         timeout=120.0,
+        include_thoughts=True,
     ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
 
     llm_with_fallback = primary_llm.with_fallbacks(
@@ -225,7 +245,7 @@ def get_agent_executor(
     )
 
     logger.info(
-        "AgentExecutor ready — model=%s tools=%s max_iterations=None",
+        "AgentExecutor ready — model=%s fallback=gemini-2.5-flash tools=%s max_iterations=None",
         settings.primary_model,
         [t.name for t in tools],
     )
@@ -319,7 +339,7 @@ def run_with_classifier(
     # Passing an empty list would override the memory's stored history.
     result = executor.invoke({"input": enhanced_input})
 
-    output = result.get("output", "No response generated.")
+    output = _extract_text(result.get("output", "No response generated."))
 
     # Step 6: Cache the response for determinism
     cache.set(response_cache_key, output, ttl=settings.cache_ttl_seconds)
@@ -369,7 +389,7 @@ def stream_with_classifier(
     for chunk in executor.stream({"input": enhanced_input}):
         yield {"type": "stream_chunk", "chunk": chunk}
         if "output" in chunk:
-            final_output = chunk["output"]
+            final_output = _extract_text(chunk["output"])
 
     # Step 5: Save to cache
     cache.set(response_cache_key, final_output, ttl=settings.cache_ttl_seconds)

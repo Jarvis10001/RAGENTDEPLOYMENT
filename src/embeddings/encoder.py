@@ -1,41 +1,37 @@
 """Google Gemini embedding API encoder.
 
-Uses the Google Generative AI API to generate text embeddings.
-No local model loading required — all embeddings are computed server-side.
+Uses the new ``google.genai`` SDK (google-genai) to generate text embeddings.
+This replaces the legacy ``google.generativeai`` package which is incompatible
+with ``langchain-google-genai`` 3.1.0.
 
 Thread-safety
 -------------
-The google-generativeai client is thread-safe and reused for all requests.
+The google.genai Client is thread-safe and reused for all requests.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from src.config import settings
 
-if TYPE_CHECKING:
-    import google.generativeai as genai
-
 logger = logging.getLogger(__name__)
 
-_client: genai.generativeai.GenerativeAI | None = None
+_client = None
 
 
 def get_client():
-    """Return the shared Google Generative AI client, initializing on first call.
+    """Return the shared Google GenAI client, initializing on first call.
 
     Returns:
-        google.generativeai.GenerativeAI: Configured API client.
+        google.genai.Client: Configured API client.
     """
     global _client
     if _client is None:
-        import google.generativeai as genai
+        from google import genai
 
-        genai.configure(api_key=settings.google_api_key)
-        _client = genai
-        logger.info("Initialized Google Generative AI client for embeddings")
+        _client = genai.Client(api_key=settings.google_api_key)
+        logger.info("Initialized google.genai Client for embeddings")
     return _client
 
 
@@ -57,19 +53,19 @@ def encode(texts: list[str]) -> list[list[float]]:
     try:
         client = get_client()
         embeddings = []
-        
-        # Batch encode texts using Google's API
+
+        # Batch encode texts using the new google.genai SDK
         for text in texts:
-            response = client.embed_content(
-                model="models/gemini-embedding-001",
-                content=text,
-                output_dimensionality=768,
+            response = client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=text,
+                config={"output_dimensionality": 768},
             )
-            embeddings.append(response["embedding"])
-        
-        logger.debug(f"Successfully encoded {len(texts)} texts using Google Embedding API")
+            embeddings.append(response.embeddings[0].values)
+
+        logger.debug(f"Successfully encoded {len(texts)} texts using Google GenAI SDK")
         return embeddings
-        
+
     except Exception as e:
-        logger.error(f"Error encoding texts with Google API: {e}")
+        logger.error(f"Error encoding texts with Google GenAI SDK: {e}")
         raise

@@ -5,26 +5,46 @@
 /* ── Design tokens (dark default) ──────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  --color-bg-primary: #0F0F0F;
-  --color-bg-surface: #1A1A1A;
-  --color-bg-elevated: #222222;
-  --color-border: #2A2A2A;
-  --color-border-muted: #1F1F1F;
-  --color-text-primary: #F0F0F0;
-  --color-text-secondary: #A0A0A0;
-  --color-text-muted: #666666;
+  --color-bg-primary: #09090B;
+  --color-bg-surface: #131316;
+  --color-bg-elevated: #1C1C21;
+  --color-border: #27272A;
+  --color-border-muted: #1E1E22;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #52525B;
+  --color-accent: #6366F1;
+  --color-accent-hover: #818CF8;
+  --color-accent-muted: rgba(99, 102, 241, 0.10);
+  --gradient-primary: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
+  --gradient-accent: linear-gradient(135deg, #6366F1, #8B5CF6);
+  --gradient-surface: linear-gradient(180deg, rgba(99, 102, 241, 0.03) 0%, transparent 100%);
+  --glass-bg: rgba(19, 19, 22, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.25);
   color-scheme: dark;
 }
 
 [data-theme="light"] {
   --color-bg-primary: #FAFAFA;
   --color-bg-surface: #FFFFFF;
-  --color-bg-elevated: #F5F5F5;
-  --color-border: #E5E5E5;
-  --color-border-muted: #EFEFEF;
-  --color-text-primary: #171717;
-  --color-text-secondary: #525252;
-  --color-text-muted: #A3A3A3;
+  --color-bg-elevated: #F4F4F5;
+  --color-border: #E4E4E7;
+  --color-border-muted: #F4F4F5;
+  --color-text-primary: #09090B;
+  --color-text-secondary: #52525B;
+  --color-text-muted: #A1A1AA;
+  --color-accent: #6366F1;
+  --color-accent-hover: #4F46E5;
+  --color-accent-muted: rgba(99, 102, 241, 0.08);
+  --gradient-primary: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
+  --gradient-accent: linear-gradient(135deg, #6366F1, #8B5CF6);
+  --gradient-surface: linear-gradient(180deg, rgba(99, 102, 241, 0.02) 0%, transparent 100%);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.10);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.08);
   color-scheme: light;
 }
 
@@ -55,6 +75,37 @@ body {
   min-height: 100vh;
 }
 
+/* ── Glassmorphism ────────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-subtle {
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+
+/* ── Gradient text ────────────────────────────────────────────────── */
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glow effects ─────────────────────────────────────────────────── */
+.glow-accent {
+  box-shadow: var(--shadow-glow);
+}
+
+.glow-accent-hover:hover {
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.25);
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
@@ -68,6 +119,7 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 3px;
+  transition: background 0.2s;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -224,3 +276,117 @@ textarea {
   resize: none;
   field-sizing: content;
 }
+
+/* ── Shimmer loading animation ─────────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-elevated) 25%,
+    var(--color-border) 50%,
+    var(--color-bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* ── Pulse glow animation ──────────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(99, 102, 241, 0.15); }
+  50% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.30); }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ── Float animation for decorative elements ───────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ── Gradient border utility ───────────────────────────────────── */
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient-primary);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.gradient-border:focus-within::before {
+  opacity: 1;
+}
+
+/* ── Chart container ───────────────────────────────────────────── */
+.chart-container {
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  overflow: hidden;
+}
+
+.chart-container .recharts-cartesian-axis-tick-value {
+  fill: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.chart-container .recharts-cartesian-grid line {
+  stroke: var(--color-border-muted);
+}
+
+.chart-container .recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.chart-container .recharts-legend-item-text {
+  color: var(--color-text-secondary) !important;
+  font-size: 12px;
+}
+
+/* ── Orb background decoration ─────────────────────────────────── */
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(10px, -10px) scale(1.05); }
+  50% { transform: translate(-5px, 5px) scale(0.95); }
+  75% { transform: translate(-10px, -5px) scale(1.02); }
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.15;
+  animation: orb-drift 12s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Typing dots animation ─────────────────────────────────────── */
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+.typing-dot:nth-child(1) { animation: typing-dot 1.4s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation: typing-dot 1.4s ease-in-out 0.2s infinite; }
+.typing-dot:nth-child(3) { animation: typing-dot 1.4s ease-in-out 0.4s infinite; }

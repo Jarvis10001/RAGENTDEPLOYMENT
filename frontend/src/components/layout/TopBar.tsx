@@ -1,124 +1,100 @@
 /**
- * TopBar — 48px top bar with conversation title, Export, source pills, and panels toggle.
+ * TopBar — slim top navigation bar with breadcrumb title,
+ * source pills with icons, and panel toggle.
  */
 
-import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../../store/useStore";
-import { useConversation } from "../../hooks/useConversation";
+import { IconMenu, IconPanelRight, IconDatabase, IconLayers, IconGlobe, IconBarChart } from "../ui/icons";
+
+const TOOL_META: Record<string, { label: string; Icon: React.ComponentType<{ size?: number; className?: string }> }> = {
+  ecommerce_sql_query: { label: "SQL", Icon: IconDatabase },
+  ecommerce_analytics_query: { label: "Analytics", Icon: IconBarChart },
+  omnichannel_feedback_search: { label: "Feedback", Icon: IconLayers },
+  marketing_content_search: { label: "Marketing", Icon: IconLayers },
+  web_market_search: { label: "Web", Icon: IconGlobe },
+};
 
 export function TopBar(): React.ReactElement {
-  const activeConversationId = useStore((s) => s.activeConversationId);
-  const conversations = useStore((s) => s.conversations);
-  const lastToolsUsed = useStore((s) => s.lastToolsUsed);
-  const rightPanelOpen = useStore((s) => s.rightPanelOpen);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
-  const toggleRightPanel = useStore((s) => s.toggleRightPanel);
+  const rightPanelOpen = useStore((s) => s.rightPanelOpen);
+  const lastToolsUsed = useStore((s) => s.lastToolsUsed);
+  const isStreaming = useStore((s) => s.isStreaming);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
+  const toggleRightPanel = useStore((s) => s.toggleRightPanel);
+  const getActiveConversation = useStore((s) => s.getActiveConversation);
 
-  const { rename, exportConversation } = useConversation();
-
-  const activeConversation = conversations.find(
-    (c) => c.id === activeConversationId
-  );
-  const title = activeConversation?.title || "E-commerce Intelligence Agent";
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(title);
-
-  const handleDoubleClick = useCallback(() => {
-    if (!activeConversationId) return;
-    setEditValue(title);
-    setIsEditing(true);
-  }, [activeConversationId, title]);
-
-  const handleBlur = useCallback(() => {
-    setIsEditing(false);
-    if (activeConversationId && editValue.trim()) {
-      rename(activeConversationId, editValue.trim());
-    }
-  }, [activeConversationId, editValue, rename]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        handleBlur();
-      }
-      if (e.key === "Escape") {
-        setIsEditing(false);
-      }
-    },
-    [handleBlur]
-  );
+  const activeConv = getActiveConversation();
 
   return (
-    <div className="h-topbar flex-shrink-0 border-b border-border bg-bg-surface flex items-center px-4 gap-3">
-
-
-      {/* Conversation title */}
-      <div className="flex-1 min-w-0">
-        {isEditing ? (
-          <input
-            autoFocus
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className="
-              w-full max-w-md bg-transparent border-b border-accent
-              text-sm font-medium text-text-primary
-              outline-none py-0.5
-            "
-          />
-        ) : (
-          <span
-            onDoubleClick={handleDoubleClick}
-            className="text-sm font-medium text-text-primary truncate block cursor-default"
-            title="Double-click to edit"
+    <div className="h-topbar flex-shrink-0 border-b border-border flex items-center justify-between px-4 bg-bg-surface/40 backdrop-blur-sm">
+      {/* Left cluster */}
+      <div className="flex items-center gap-3 min-w-0">
+        {!sidebarOpen && (
+          <button
+            onClick={toggleSidebar}
+            className="text-text-muted hover:text-text-primary transition-colors focus-ring rounded-lg p-1 hover:bg-bg-elevated"
+            aria-label="Open sidebar"
           >
-            {title}
-          </span>
+            <IconMenu size={18} />
+          </button>
         )}
+
+        {/* Title */}
+        <div className="flex items-center gap-2 min-w-0">
+          {isStreaming && (
+            <motion.span
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-2 h-2 rounded-full bg-accent flex-shrink-0"
+            />
+          )}
+          <h2 className="text-sm font-semibold text-text-primary truncate">
+            {activeConv?.title || "E-Commerce Intelligence"}
+          </h2>
+        </div>
       </div>
 
-      {/* Source indicator pills */}
-      <div className="flex items-center gap-1.5">
-        {lastToolsUsed.map((tool) => (
-          <span
-            key={tool}
-            className="
-              px-2 py-0.5 rounded-pill text-2xs font-medium
-              bg-accent/10 text-accent border border-accent/20
-            "
-          >
-            {tool}
-          </span>
-        ))}
-      </div>
+      {/* Right cluster */}
+      <div className="flex items-center gap-2">
+        {/* Source pills */}
+        <AnimatePresence>
+          {lastToolsUsed.map((t) => {
+            const meta = TOOL_META[t] || { label: t, Icon: IconDatabase };
+            const { label, Icon } = meta;
+            return (
+              <motion.span
+                key={t}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="
+                  inline-flex items-center gap-1.5 px-2.5 py-1
+                  rounded-full text-2xs font-medium
+                  bg-bg-elevated border border-border/50
+                  text-text-secondary select-none
+                "
+              >
+                <Icon size={11} />
+                {label}
+              </motion.span>
+            );
+          })}
+        </AnimatePresence>
 
-      {/* Export button */}
-      {activeConversationId && (
+        {/* Panel toggle */}
         <button
-          onClick={exportConversation}
-          className="text-sm text-text-secondary hover:text-text-primary transition-colors focus-ring rounded px-2 py-1"
+          onClick={toggleRightPanel}
+          className={`
+            text-text-muted hover:text-text-primary
+            p-1.5 rounded-lg transition-all focus-ring
+            ${rightPanelOpen ? "bg-accent/10 text-accent" : "hover:bg-bg-elevated"}
+          `}
+          aria-label={rightPanelOpen ? "Close analysis panel" : "Open analysis panel"}
         >
-          Export
+          <IconPanelRight size={18} />
         </button>
-      )}
-
-      {/* Right panel toggle */}
-      <button
-        onClick={toggleRightPanel}
-        className={`
-          text-sm px-2 py-1 rounded-input transition-colors focus-ring
-          ${
-            rightPanelOpen
-              ? "text-accent bg-accent/10"
-              : "text-text-secondary hover:text-text-primary"
-          }
-        `}
-      >
-        Details
-      </button>
+      </div>
     </div>
   );
 }

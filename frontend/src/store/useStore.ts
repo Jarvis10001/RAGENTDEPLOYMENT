@@ -2,7 +2,7 @@
  * Zustand global state for E-commerce Intelligence Agent.
  *
  * Single source of truth for conversations, streaming state,
- * tool activity, and UI panels.
+ * tool activity, chart visualizations, and UI panels.
  */
 
 import { create } from "zustand";
@@ -17,6 +17,16 @@ import {
 
 // ── Domain types ─────────────────────────────────────────────────
 
+export interface ChartSpec {
+  chart_type: "bar" | "line" | "area" | "pie" | "scatter" | "radar";
+  title: string;
+  data: Record<string, unknown>[];
+  x_key: string;
+  y_keys: string[];
+  colors?: string[];
+  config?: Record<string, unknown>;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -28,6 +38,7 @@ export interface Message {
   dataPreview?: DataPreview | null;
   sourceCitations?: Citation[];
   lastToolsUsed?: string[];
+  chartSpec?: ChartSpec | null;
 }
 
 export interface Conversation {
@@ -66,6 +77,7 @@ interface AppState {
   // UI panels
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
+  rightPanelTab: "tools" | "data" | "sources" | "chart";
   theme: ThemeValue;
 
   // Streaming
@@ -77,6 +89,7 @@ interface AppState {
   dataPreview: DataPreview | null;
   sourceCitations: Citation[];
   lastToolsUsed: string[];
+  currentChartSpec: ChartSpec | null;
 
   // Error
   connectionError: string | null;
@@ -96,6 +109,7 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   toggleRightPanel: () => void;
   setRightPanelOpen: (open: boolean) => void;
+  setRightPanelTab: (tab: "tools" | "data" | "sources" | "chart") => void;
   toggleTheme: () => void;
 
   // Actions — Streaming
@@ -110,6 +124,7 @@ interface AppState {
   setDataPreview: (preview: DataPreview | null) => void;
   addCitation: (citation: Citation) => void;
   setLastToolsUsed: (tools: string[]) => void;
+  setChartSpec: (spec: ChartSpec | null) => void;
 
   // Actions — Error
   setConnectionError: (error: string | null) => void;
@@ -157,6 +172,7 @@ export const useStore = create<AppState>((set, get) => ({
   activeConversationId: null,
   sidebarOpen: true,
   rightPanelOpen: false,
+  rightPanelTab: "tools",
   theme: loadTheme(),
   isStreaming: false,
   streamingContent: "",
@@ -164,6 +180,7 @@ export const useStore = create<AppState>((set, get) => ({
   dataPreview: null,
   sourceCitations: [],
   lastToolsUsed: [],
+  currentChartSpec: null,
   connectionError: null,
 
   // ── Conversations ────────────────────────────────────────────
@@ -186,6 +203,7 @@ export const useStore = create<AppState>((set, get) => ({
       dataPreview: lastAsst?.dataPreview || null,
       sourceCitations: lastAsst?.sourceCitations || [],
       lastToolsUsed: lastAsst?.lastToolsUsed || [],
+      currentChartSpec: lastAsst?.chartSpec || null,
     });
   },
 
@@ -242,6 +260,7 @@ export const useStore = create<AppState>((set, get) => ({
     const dataPreviewSnapshot = s.dataPreview;
     const sourceCitationsSnapshot = s.sourceCitations;
     const lastToolsUsedSnapshot = s.lastToolsUsed;
+    const chartSpecSnapshot = s.currentChartSpec;
 
     const conversations = s.conversations.map((c) => {
       if (c.id !== conversationId) return c;
@@ -256,6 +275,7 @@ export const useStore = create<AppState>((set, get) => ({
           dataPreview: dataPreviewSnapshot ? { ...dataPreviewSnapshot } : null,
           sourceCitations: [...sourceCitationsSnapshot],
           lastToolsUsed: [...lastToolsUsedSnapshot],
+          chartSpec: chartSpecSnapshot ? { ...chartSpecSnapshot } : null,
         };
       }
       return { ...c, messages: msgs, updatedAt: Date.now() };
@@ -270,6 +290,7 @@ export const useStore = create<AppState>((set, get) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
   setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
+  setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
 
   toggleTheme: () => {
     const next: ThemeValue = get().theme === "dark" ? "light" : "dark";
@@ -306,6 +327,7 @@ export const useStore = create<AppState>((set, get) => ({
       sourceCitations: [],
       lastToolsUsed: [],
       streamingContent: "",
+      currentChartSpec: null,
     }),
 
   setDataPreview: (preview) => set({ dataPreview: preview }),
@@ -314,6 +336,14 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ sourceCitations: [...s.sourceCitations, citation] })),
 
   setLastToolsUsed: (tools) => set({ lastToolsUsed: tools }),
+
+  setChartSpec: (spec) => {
+    set({ currentChartSpec: spec });
+    // Auto-switch to chart tab when spec arrives
+    if (spec) {
+      set({ rightPanelTab: "chart", rightPanelOpen: true });
+    }
+  },
 
   // ── Error ────────────────────────────────────────────────────
 

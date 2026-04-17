@@ -24,6 +24,7 @@ from fastapi.responses import StreamingResponse
 from api.schemas import ChatRequest, ClearResponse, HealthResponse, HistoryItem
 from api.session_manager import session_manager
 from src.agent.primary_agent import run_with_classifier, stream_with_classifier
+from src.agent.visualization_agent import generate_chart_spec
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,30 @@ app.add_middleware(
 def _sse_event(data: dict[str, object]) -> str:
     """Format a dict as an SSE `data:` line."""
     return f"data: {json.dumps(data)}\n\n"
+
+
+def _extract_text(output: object) -> str:
+    """Normalize Gemini output to a plain string.
+
+    With ``include_thoughts=True`` the model wraps its answer in a list of
+    content-block dicts::
+
+        [{'type': 'text', 'text': '...', 'index': 0, 'extras': {'signature': '...'}}]
+
+    This helper extracts only the ``'text'`` parts and strips thought
+    signatures so the frontend always receives a clean string.
+    """
+    if isinstance(output, str):
+        return output
+    if isinstance(output, list):
+        parts = []
+        for block in output:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text", "")
+                if text:  # skip empty thought blocks
+                    parts.append(text)
+        return "".join(parts).strip() or "No response generated."
+    return str(output)
 
 
 async def _stream_chat(
@@ -101,6 +126,7 @@ async def _stream_chat(
 
         gen = await asyncio.to_thread(get_background_gen)
         tool_start_times = {}
+        collected_tool_outputs: list[dict[str, str]] = []
 
         while True:
             try:
@@ -112,7 +138,7 @@ async def _stream_chat(
             msg_type = msg.get("type")
             
             if msg_type in ("clarification", "cache_hit"):
-                output = str(msg.get("output", ""))
+                output = _extract_text(msg.get("output", ""))
                 words = output.split(" ")
                 for i, word in enumerate(words):
                     token = word if i == len(words) - 1 else word + " "
@@ -149,22 +175,49 @@ async def _stream_chat(
                         start_time = tool_start_times.get(tool_name, time.perf_counter() - 1.0)
                         duration_ms = int((time.perf_counter() - start_time) * 1000)
                         
+                        tool_output_str = str(observation)[:2000]
+                        collected_tool_outputs.append({
+                            "tool": tool_name,
+                            "output": tool_output_str,
+                        })
                         yield _sse_event({
                             "type": "tool_end",
                             "tool": tool_name,
-                            "output": str(observation)[:2000],
+                            "output": tool_output_str,
                             "duration_ms": duration_ms,
                         })
                         
                 elif "output" in chunk:
                     # Final response token stream
-                    output = str(chunk.get("output", "No response generated."))
+                    output = _extract_text(chunk.get("output", "No response generated."))
                     words = output.split(" ")
                     for i, word in enumerate(words):
                         token = word if i == len(words) - 1 else word + " "
                         yield _sse_event({"type": "token", "content": token})
                         await asyncio.sleep(0.018)
-                    yield _sse_event({"type": "done", "full_response": output})
+
+                    # Generate chart visualization if applicable
+                    debug_msg = "\n\n[Debug: Chart=Skipped]"
+                    if collected_tool_outputs:
+                        try:
+                            chart_spec = await asyncio.to_thread(
+                                generate_chart_spec, collected_tool_outputs
+                            )
+                            if chart_spec:
+                                debug_msg = f"\n\n[Debug: Chart={chart_spec.get('chart_type')}]"
+                                yield _sse_event({
+                                    "type": "chart",
+                                    "spec": chart_spec,
+                                })
+                            else:
+                                debug_msg = "\n\n[Debug: Chart=NO_CHART]"
+                                logger.info("Visualization Agent returned NO_CHART.")
+                        except Exception as chart_exc:
+                            debug_msg = f"\n\n[Debug: ChartError={type(chart_exc).__name__}]"
+                            logger.error("Chart generation failed: %s", chart_exc)
+
+                    await asyncio.sleep(0.5)
+                    yield _sse_event({"type": "done", "full_response": output + debug_msg})
                     return
 
     except Exception as exc:

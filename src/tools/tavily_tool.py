@@ -14,11 +14,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from langchain.tools import tool
+from langchain_classic.tools import tool
 
 from src.cache import response_cache as cache
 from src.config import settings
-from src.llm import get_sub_llm
+from src.llm import extract_text, get_sub_llm
 from src.models.tool_inputs import TavilySearchInput
 from src.utils.retry import exponential_backoff
 
@@ -101,7 +101,7 @@ def _rewrite_query(query: str) -> str:
         "Return ONLY the rewritten query or 'REJECTED_DOMAIN'.\n\n"
         f"Question: {query}"
     )
-    search_query: str = get_sub_llm().invoke(prompt).content.strip()
+    search_query: str = extract_text(get_sub_llm().invoke(prompt).content)
     logger.info("Rewritten search query: %r", search_query)
     return search_query or query  # fall back to original if rewriter returns empty
 

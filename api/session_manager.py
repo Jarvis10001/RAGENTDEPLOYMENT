@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Final
 
-from langchain.agents import AgentExecutor
+from langchain_classic.agents import AgentExecutor
 
 from src.agent.primary_agent import get_agent_executor
 from src.memory.session_memory import create_memory

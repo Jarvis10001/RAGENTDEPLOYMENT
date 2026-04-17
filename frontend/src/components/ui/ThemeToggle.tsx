@@ -1,51 +1,37 @@
 /**
- * ThemeToggle — Dark/Light pill switch. No icons, text labels only.
+ * ThemeToggle — animated sun/moon icon button.
  */
 
+import { motion } from "framer-motion";
 import { useStore } from "../../store/useStore";
+import { IconSun, IconMoon } from "../ui/icons";
 
 export function ThemeToggle(): React.ReactElement {
   const theme = useStore((s) => s.theme);
   const toggleTheme = useStore((s) => s.toggleTheme);
+  const isDark = theme === "dark";
 
   return (
     <button
       onClick={toggleTheme}
       className="
-        relative flex h-8 w-full items-center rounded-pill
-        border border-border bg-bg-surface
-        text-xs font-medium text-text-secondary
-        transition-colors hover:border-accent/30
-        focus-ring
+        relative w-8 h-8 rounded-lg
+        flex items-center justify-center
+        text-text-muted hover:text-text-primary
+        hover:bg-bg-elevated
+        transition-all duration-200 focus-ring
       "
-      id="theme-toggle"
-      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
     >
-      <span
-        className={`
-          flex-1 text-center py-1 z-10 transition-colors duration-200
-          ${theme === "dark" ? "text-text-primary" : "text-text-muted"}
-        `}
+      <motion.div
+        key={theme}
+        initial={{ scale: 0.6, opacity: 0, rotate: -30 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        exit={{ scale: 0.6, opacity: 0, rotate: 30 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
       >
-        Dark
-      </span>
-      <span
-        className={`
-          flex-1 text-center py-1 z-10 transition-colors duration-200
-          ${theme === "light" ? "text-text-primary" : "text-text-muted"}
-        `}
-      >
-        Light
-      </span>
-      {/* Sliding indicator */}
-      <span
-        className={`
-          absolute top-[3px] h-[calc(100%-6px)] w-[calc(50%-4px)] rounded-pill
-          bg-bg-elevated border border-border-muted
-          transition-all duration-300 ease-out
-          ${theme === "dark" ? "left-[3px]" : "left-[calc(50%+1px)]"}
-        `}
-      />
+        {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+      </motion.div>
     </button>
   );
 }

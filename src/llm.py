@@ -29,6 +29,24 @@ _sub_llm: Runnable | None = None
 _sub_llm_lock = threading.Lock()
 
 
+def extract_text(output: object) -> str:
+    """Normalize Gemini output to a plain string.
+
+    ``include_thoughts=True`` wraps the response in a list of content-block
+    dicts. This extracts only the plain-text parts for tools using the sub-LLM.
+    """
+    if isinstance(output, str):
+        return output
+    if isinstance(output, list):
+        parts = [
+            block.get("text", "")
+            for block in output
+            if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
+        ]
+        return "".join(parts).strip() or "No response generated."
+    return str(output)
+
+
 def get_sub_llm(
     max_output_tokens: int | None = None,
 ) -> Runnable:
@@ -65,6 +83,7 @@ def get_sub_llm(
                 max_output_tokens=tokens,
                 max_retries=0,
                 timeout=120.0,
+                include_thoughts=True,
             ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
             fallback_llm = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash",
@@ -73,6 +92,7 @@ def get_sub_llm(
                 max_output_tokens=tokens,
                 max_retries=0,
                 timeout=120.0,
+                include_thoughts=True,
             ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
 
             _sub_llm = main_llm.with_fallbacks(

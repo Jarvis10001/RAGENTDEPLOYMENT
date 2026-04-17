@@ -3,6 +3,7 @@
  */
 
 import axios from "axios";
+import type { ChartSpec } from "../store/useStore";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -42,12 +43,18 @@ export interface ErrorEvent {
   message: string;
 }
 
+export interface ChartEvent {
+  type: "chart";
+  spec: ChartSpec;
+}
+
 export type SSEEvent =
   | TokenEvent
   | ToolStartEvent
   | ToolEndEvent
   | DoneEvent
-  | ErrorEvent;
+  | ErrorEvent
+  | ChartEvent;
 
 // ── History item for API ─────────────────────────────────────────
 

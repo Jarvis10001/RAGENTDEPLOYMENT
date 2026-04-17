@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from langchain.tools import tool
+from langchain_classic.tools import tool
 
 from src.cache import response_cache as cache
 from src.config import settings

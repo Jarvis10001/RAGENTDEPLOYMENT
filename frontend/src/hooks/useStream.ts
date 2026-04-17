@@ -58,6 +58,7 @@ export function useStream(): UseStreamReturn {
   const setLastToolsUsed = useStore((s) => s.setLastToolsUsed);
   const setConnectionError = useStore((s) => s.setConnectionError);
   const setRightPanelOpen = useStore((s) => s.setRightPanelOpen);
+  const setChartSpec = useStore((s) => s.setChartSpec);
 
   const sendMessage = useCallback(
     (message: string) => {
@@ -164,6 +165,11 @@ export function useStream(): UseStreamReturn {
             break;
           }
 
+          case "chart": {
+            setChartSpec(event.spec);
+            break;
+          }
+
           case "done": {
             finalizeAssistantMessage(currentConvId, event.full_response);
             setStreaming(false);
@@ -239,6 +245,7 @@ export function useStream(): UseStreamReturn {
       setConnectionError,
       setLastToolsUsed,
       setRightPanelOpen,
+      setChartSpec,
     ]
   );
 

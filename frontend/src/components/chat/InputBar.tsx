@@ -1,11 +1,11 @@
 /**
- * InputBar — fixed-bottom input area.
- *
- * Full-width pill shape, auto-expands up to 5 lines.
- * "Send" text button in accent color, ⌘ Enter hint.
+ * InputBar — premium input area with gradient glow border,
+ * icon send button, and stop streaming button.
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { IconSend, IconStop } from "../ui/icons";
 
 interface InputBarProps {
   onSend: (message: string) => void;
@@ -51,56 +51,95 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
     [handleSend]
   );
 
+  const canSend = value.trim().length > 0 && !isStreaming;
+
   return (
-    <div className="flex-shrink-0 border-t border-border bg-bg-primary px-4 py-3">
+    <div className="flex-shrink-0 border-t border-border bg-bg-primary/80 backdrop-blur-sm px-4 py-3">
       <div className="max-w-4xl mx-auto">
-        <div
-          className="
-            flex items-end gap-3 rounded-pill
-            border border-border bg-bg-surface
-            px-5 py-2.5
-            focus-within:border-accent/50
-            transition-colors
-            shadow-accent
-          "
-        >
-          <textarea
-            ref={textareaRef}
-            id="chat-input"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your revenue, campaigns, or customers..."
-            disabled={isStreaming}
-            rows={1}
-            className="
-              flex-1 bg-transparent text-sm text-text-primary
-              placeholder:text-text-muted
-              outline-none resize-none
-              py-1 leading-6
-              disabled:opacity-50
-            "
-          />
-
-          {/* Keyboard hint */}
-          <span className="text-2xs text-text-muted whitespace-nowrap pb-1 hidden sm:block select-none">
-            {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} Enter
-          </span>
-
-          {/* Send button */}
-          <button
-            onClick={handleSend}
-            disabled={!value.trim() || isStreaming}
-            className="
-              text-sm font-medium text-accent
-              hover:text-accent-hover
-              disabled:text-text-muted disabled:cursor-not-allowed
-              transition-colors focus-ring rounded
-              pb-0.5 whitespace-nowrap
-            "
+        <div className="gradient-border rounded-2xl">
+          <div
+            className={`
+              flex items-end gap-2 rounded-2xl
+              border border-border bg-bg-surface
+              px-4 py-2.5
+              focus-within:border-accent/40
+              transition-all duration-300
+              ${isStreaming ? "border-accent/20" : ""}
+            `}
           >
-            {isStreaming ? "Sending..." : "Send"}
-          </button>
+            <textarea
+              ref={textareaRef}
+              id="chat-input"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about your revenue, campaigns, or customers..."
+              disabled={isStreaming}
+              rows={1}
+              className="
+                flex-1 bg-transparent text-sm text-text-primary
+                placeholder:text-text-muted
+                outline-none resize-none
+                py-1 leading-6
+                disabled:opacity-50
+              "
+            />
+
+            {/* Keyboard hint */}
+            <span className="text-2xs text-text-muted whitespace-nowrap pb-1.5 hidden sm:block select-none">
+              {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} ↵
+            </span>
+
+            {/* Send / Stop button */}
+            <AnimatePresence mode="wait">
+              {isStreaming ? (
+                <motion.button
+                  key="stop"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => {
+                    // Dispatch abort via custom event
+                    window.dispatchEvent(new CustomEvent("ri:cancel-stream"));
+                  }}
+                  className="
+                    flex-shrink-0 w-8 h-8 rounded-lg
+                    flex items-center justify-center
+                    bg-status-error/10 text-status-error
+                    hover:bg-status-error/20
+                    transition-colors focus-ring
+                  "
+                  aria-label="Stop generating"
+                >
+                  <IconStop size={16} />
+                </motion.button>
+              ) : (
+                <motion.button
+                  key="send"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={handleSend}
+                  disabled={!canSend}
+                  className={`
+                    flex-shrink-0 w-8 h-8 rounded-lg
+                    flex items-center justify-center
+                    transition-all duration-200 focus-ring
+                    ${
+                      canSend
+                        ? "bg-accent text-white hover:bg-accent-hover shadow-accent"
+                        : "bg-bg-elevated text-text-muted cursor-not-allowed"
+                    }
+                  `}
+                  aria-label="Send message"
+                >
+                  <IconSend size={16} />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>
