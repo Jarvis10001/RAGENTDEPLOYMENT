@@ -187,6 +187,13 @@ class Settings(BaseSettings):
     )
 
     # ── Application ──────────────────────────────────────────────────
+    enable_classifier: bool = Field(
+        default=True,
+        description=(
+            "Enable deterministic query classification before the agent loop. "
+            "Set false to bypass classifier and save one sub-agent call per query."
+        ),
+    )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="INFO",
         description="Root logger level.",

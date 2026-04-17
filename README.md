@@ -8,6 +8,7 @@
 ## ii. Features
 - **Conversational Memory:** Preserves multi-turn conversation context, allowing users to ask follow-up questions or clarify previous ambiguous queries without losing the thread.
 - **Autonomous Tool Routing:** The agent classifies queries and automatically invokes either the `ecommerce_sql_query` tool (for internal metrics) or the `web_market_search` tool (for external data).
+- **Classifier Toggle:** `ENABLE_CLASSIFIER=true|false` lets you choose deterministic pre-classification vs direct agent tool selection.
 - **Domain Constraint System:** Web Search requests are strictly restricted; non-business or non-ecommerce queries are automatically rejected by a sub-agent.
 - **Real-Time Streaming:** Built with FastAPI SSE streaming,     allowing the user to watch the detailed thinking steps, tool invocations, and text generation natively in real-time.
 - **Dynamic Right-Panel Analysis:** Saves execution snapshots, so users can seamlessly swap between historic conversation logs and see exactly what SQL query or Web Search was run for that specific question.
@@ -27,6 +28,7 @@ You will need to fill out the following inside your `.env` file:
 - `GOOGLE_API_KEY`: Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 - `TAVILY_API_KEY`: Get a free key from [Tavily](https://app.tavily.com/).
 - `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`: From your Supabase project settings.
+- `ENABLE_CLASSIFIER` (optional, default `true`): Set to `false` to bypass the classifier and save one sub-agent LLM call per query.
 
 *Note on Embeddings:* We use `all-MiniLM-L6-v2` locally for document embeddings and reranking. You do not need an API key for this, but the very first time you run the backend, it will download the model files to your machine. This may take a few minutes depending on your internet connection.
 

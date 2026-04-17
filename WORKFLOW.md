@@ -29,7 +29,7 @@ RAGENT is a multi-tool E-commerce Intelligence Agent that answers natural-langua
 | `web_market_search` | Industry benchmarks, competitor data, market trends | Tavily Web Search API |
 
 **Key design principles:**
-- **Deterministic**: A query classifier pre-processes every question into a structured intent before the agent runs, enforcing consistent tool selection.
+- **Deterministic (toggleable)**: The query classifier can pre-process each question into a structured intent before the agent runs (`ENABLE_CLASSIFIER=true`), or be bypassed (`ENABLE_CLASSIFIER=false`).
 - **Clarification-aware**: When a query is ambiguous, the system asks the user for clarification instead of guessing.
 - **Cached**: Multi-layer caching (tool-level + response-level) eliminates redundant API calls.
 - **Safe**: All SQL is validated against a DML/DDL blocklist and executed via a read-only Postgres RPC.
@@ -148,6 +148,9 @@ Step 2: Check pending_clarification in session state
 Step 3: run_with_classifier(executor, question, chat_context)
    │
    ├─ 3a. classify_query(question, chat_context)
+   │       ├─ If ENABLE_CLASSIFIER=false → bypass classifier and use _bypass_classifier(question)
+   │       │   (skips classifier cache and classifier LLM call)
+   │       └─ If ENABLE_CLASSIFIER=true:
    │       ├─ Check classifier cache (keyed on question + context[:200])
    │       ├─ If miss → invoke sub-LLM with classification prompt
    │       │   ├─ Prompt includes: database schema, available tools, rules
@@ -465,6 +468,7 @@ All settings are loaded from `.env` via `pydantic-settings`:
 | `SUB_AGENT_MODEL` | gemini-3.1-flash-lite-preview | Model for SQL gen, classification, summary |
 | `PRIMARY_MAX_TOKENS` | 2048 | Max output tokens for primary model |
 | `SUB_AGENT_MAX_TOKENS` | 600 | Max output tokens for sub-agent |
+| `ENABLE_CLASSIFIER` | true | Enable deterministic classifier before agent loop (`false` bypasses classifier) |
 | `EMBEDDING_MODEL` | all-MiniLM-L6-v2 | SentenceTransformer model (384-dim) |
 | `RERANKER_MODEL` | cross-encoder/ms-marco-MiniLM-L-6-v2 | CrossEncoder for reranking |
 | `RAG_RETRIEVE_K` | 20 | Candidates from pgvector search |

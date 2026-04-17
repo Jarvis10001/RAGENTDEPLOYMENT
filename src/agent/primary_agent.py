@@ -206,6 +206,21 @@ def _bypass_classifier(question: str) -> QueryIntent:
         confidence="medium"
     )
 
+
+def _resolve_intent(question: str, chat_context: str = "") -> QueryIntent:
+    """Resolve intent using classifier when enabled, else bypass."""
+    if not settings.enable_classifier:
+        return _bypass_classifier(question)
+    try:
+        return classify_query(question, chat_context=chat_context)
+    except Exception as exc:
+        logger.warning(
+            "Classifier failed (%s). Falling back to bypass mode.",
+            type(exc).__name__,
+        )
+        return _bypass_classifier(question)
+
+
 def run_with_classifier(
     executor: AgentExecutor,
     question: str,
@@ -213,10 +228,10 @@ def run_with_classifier(
 ) -> dict[str, Any]:
     """Run a user question through the classifier -> agent pipeline.
 
-    This bypasses the classification to save API limits.
+    Classification is controlled by the ENABLE_CLASSIFIER setting.
     """
-    # Step 1: Bypassed classification (saves 1 API call per query)
-    intent = _bypass_classifier(question)
+    # Step 1: Resolve intent (classifier enabled/disabled via settings)
+    intent = _resolve_intent(question, chat_context=chat_context)
 
     # Step 2: Check if clarification is needed — return immediately
     # (no cache, no tool calls — just ask the user)
@@ -284,8 +299,8 @@ def stream_with_classifier(
     chat_context: str = "",
 ):
     """Synchronous generator version of run_with_classifier for live streaming."""
-    # Step 1: Bypassed classification
-    intent = _bypass_classifier(question)
+    # Step 1: Resolve intent (classifier enabled/disabled via settings)
+    intent = _resolve_intent(question, chat_context=chat_context)
 
     # Step 2: Clarification
     if needs_clarification(intent):
