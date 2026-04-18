@@ -1,8 +1,7 @@
 /**
  * InputBar — premium input area with animated gradient glow border,
- * auto-expanding textarea, character counter, and send/stop controls.
- * InputBar — premium input area with gradient glow border,
- * mode toggle (Fast / Thinking), icon send button, and stop streaming button.
+ * auto-expanding textarea, character counter, mode toggle (Fast / Thinking),
+ * and send/stop controls.
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -165,17 +164,13 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
-<<<<<<< HEAD
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder="Ask about your revenue, campaigns, or customers..."
-=======
               placeholder={
                 chatMode === "thinking"
                   ? "Ask a complex question for deeper analysis..."
                   : "Ask about your revenue, campaigns, or customers..."
               }
->>>>>>> bb199f2367bdff62a9e63335519d0ee05c0e64d9
               disabled={isStreaming}
               rows={1}
               className="
