@@ -164,11 +164,17 @@ async def _stream_chat(
                         })
                         
                 elif "steps" in chunk:
-                    # Tool ends
+                    # Tool ends — steps are AgentStep objects with
+                    # .action and .observation attributes (NOT tuples)
                     for step in chunk["steps"]:
-                        if not isinstance(step, tuple) or len(step) < 2:
+                        # Support both AgentStep objects and plain tuples
+                        if hasattr(step, "action") and hasattr(step, "observation"):
+                            action = step.action
+                            observation = step.observation
+                        elif isinstance(step, (tuple, list)) and len(step) >= 2:
+                            action, observation = step[0], step[1]
+                        else:
                             continue
-                        action, observation = step
                         tool_name = getattr(action, "tool", "unknown_tool")
                         
                         # Calculate exact duration
@@ -197,27 +203,23 @@ async def _stream_chat(
                         await asyncio.sleep(0.018)
 
                     # Generate chart visualization if applicable
-                    debug_msg = "\n\n[Debug: Chart=Skipped]"
                     if collected_tool_outputs:
                         try:
                             chart_spec = await asyncio.to_thread(
                                 generate_chart_spec, collected_tool_outputs
                             )
                             if chart_spec:
-                                debug_msg = f"\n\n[Debug: Chart={chart_spec.get('chart_type')}]"
+                                logger.info("Chart generated: %s", chart_spec.get("chart_type"))
                                 yield _sse_event({
                                     "type": "chart",
                                     "spec": chart_spec,
                                 })
                             else:
-                                debug_msg = "\n\n[Debug: Chart=NO_CHART]"
                                 logger.info("Visualization Agent returned NO_CHART.")
                         except Exception as chart_exc:
-                            debug_msg = f"\n\n[Debug: ChartError={type(chart_exc).__name__}]"
                             logger.error("Chart generation failed: %s", chart_exc)
 
-                    await asyncio.sleep(0.5)
-                    yield _sse_event({"type": "done", "full_response": output + debug_msg})
+                    yield _sse_event({"type": "done", "full_response": output})
                     return
 
     except Exception as exc:

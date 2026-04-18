@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from src.config import settings
 from src.cache import response_cache as cache
-from src.llm import get_sub_llm
+from src.llm import extract_text, get_sub_llm
 from src.utils.retry import exponential_backoff
 
 logger = logging.getLogger(__name__)
@@ -173,7 +173,7 @@ def classify_query(
     )
 
     response = get_sub_llm().invoke(prompt)
-    raw_output: str = response.content.strip()
+    raw_output: str = extract_text(response.content).strip()
 
     # Strip markdown fences if present
     if raw_output.startswith("```"):
