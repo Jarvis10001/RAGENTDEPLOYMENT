@@ -30,12 +30,12 @@ export function MessageList({
   );
   const messages = activeConversation?.messages || [];
 
-  // Auto-scroll to bottom on new messages or streaming content
+  // Auto-scroll to bottom only when a new message is added
   useEffect(() => {
     if (bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, messages[messages.length - 1]?.content, isStreaming]);
+  }, [messages.length]);
 
   // No conversation or empty conversation
   if (!activeConversationId || messages.length === 0) {

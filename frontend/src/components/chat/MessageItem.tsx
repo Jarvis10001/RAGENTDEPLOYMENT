@@ -18,7 +18,7 @@ import type { Components } from "react-markdown";
 import { useStore, type Message, type ToolCall } from "../../store/useStore";
 import { CodeBlock } from "../ui/CodeBlock";
 import { ChartRenderer } from "../charts/ChartRenderer";
-import { IconBot, IconCopy, IconCheck, IconChevronDown, IconRefresh } from "../ui/icons";
+import { IconBot, IconCopy, IconCheck, IconChevronDown, IconRefresh, IconClock } from "../ui/icons";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -278,6 +278,17 @@ function MessageItemInner({ message }: MessageItemProps): React.ReactElement {
                 <span className="tabular-nums text-[#737373]">
                   {activeToolCalls.length} step{activeToolCalls.length !== 1 ? "s" : ""}
                 </span>
+                {activeToolCalls.some((tc) => tc.durationMs > 0) && (
+                  <>
+                    <span className="text-[#333333] mx-0.5">•</span>
+                    <span className="tabular-nums text-[#737373] flex items-center gap-1">
+                      <IconClock size={10} />
+                      {(
+                        activeToolCalls.reduce((acc, tc) => acc + tc.durationMs, 0) / 1000
+                      ).toFixed(1)}s
+                    </span>
+                  </>
+                )}
               </button>
 
               <AnimatePresence>
@@ -329,11 +340,6 @@ function MessageItemInner({ message }: MessageItemProps): React.ReactElement {
             </div>
           )}
 
-          {/* Inline chart */}
-          {chartSpec && !message.isStreaming && (
-            <ChartRenderer spec={chartSpec} showDataCard={true} />
-          )}
-
           {/* Message content */}
           <div
             className={`prose-assistant ${message.isStreaming ? "streaming-cursor" : ""}`}
@@ -353,6 +359,13 @@ function MessageItemInner({ message }: MessageItemProps): React.ReactElement {
               </div>
             ) : null}
           </div>
+
+          {/* Inline chart */}
+          {chartSpec && !message.isStreaming && (
+            <div className="mt-4">
+              <ChartRenderer spec={chartSpec} showDataCard={true} />
+            </div>
+          )}
 
           {/* Copy button — appears on hover */}
           {message.content && !message.isStreaming && (

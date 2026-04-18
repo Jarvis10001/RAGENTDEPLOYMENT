@@ -42,13 +42,7 @@ export function TopBar(): React.ReactElement {
 
         {/* Title */}
         <div className="flex items-center gap-2 min-w-0">
-          {isStreaming && (
-            <motion.span
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-2 h-2 rounded-full bg-accent flex-shrink-0"
-            />
-          )}
+
           <h2 className="text-sm font-semibold text-text-primary truncate">
             {activeConv?.title || "E-Commerce Intelligence"}
           </h2>

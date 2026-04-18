@@ -60,7 +60,7 @@ export function InlineDataCard({ data }: InlineDataCardProps): React.ReactElemen
   };
 
   return (
-    <div className="mt-2 rounded-xl border border-border/60 bg-bg-surface/60 overflow-hidden">
+    <div className="mt-2 rounded-xl border border-[#333333] bg-[#212121] overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded((v) => !v)}
@@ -91,7 +91,7 @@ export function InlineDataCard({ data }: InlineDataCardProps): React.ReactElemen
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border/40">
+            <div className="border-t border-[#333333]">
               {/* Download button */}
               <div className="flex justify-end px-3 py-1.5">
                 <button
@@ -123,7 +123,7 @@ export function InlineDataCard({ data }: InlineDataCardProps): React.ReactElemen
                       {keys.map((key) => (
                         <th
                           key={key}
-                          className="text-left px-3 py-2 font-semibold text-text-muted text-[10px] uppercase tracking-wider border-b border-border/30 whitespace-nowrap"
+                          className="text-left px-3 py-2 font-semibold text-text-muted text-[10px] uppercase tracking-wider border-b border-[#333333] whitespace-nowrap"
                         >
                           {key.replace(/_/g, " ")}
                         </th>
@@ -135,7 +135,7 @@ export function InlineDataCard({ data }: InlineDataCardProps): React.ReactElemen
                       <tr
                         key={rowIdx}
                         className={`
-                          border-b border-border/20 last:border-b-0
+                          border-b border-[#333333] last:border-b-0
                           ${rowIdx % 2 === 0 ? "bg-transparent" : "bg-bg-elevated/20"}
                           hover:bg-accent/5 transition-colors
                         `}

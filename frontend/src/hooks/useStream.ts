@@ -137,7 +137,6 @@ export function useStream(): UseStreamReturn {
               addAgentLog(event.thinking);
             }
             toolsUsed.add(toolCategory(event.tool));
-            setRightPanelOpen(true);
             break;
           }
 

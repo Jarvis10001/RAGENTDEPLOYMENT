@@ -183,8 +183,8 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
 
               {/* Right side: keyboard hint + counters + send/stop */}
               <div className="flex items-center gap-3">
-                <span className="text-xs text-[#737373] select-none tabular-nums">
-                  0/1000
+                <span className={`text-xs select-none tabular-nums ${charCount > 1000 ? "text-red-400" : "text-[#737373]"}`}>
+                  {charCount}/1000
                 </span>
                 <div className="w-px h-3 bg-[#333333] hidden sm:block"></div>
                 <span className="text-2xs text-[#737373] whitespace-nowrap hidden sm:block select-none tracking-wider uppercase">
@@ -241,7 +241,7 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

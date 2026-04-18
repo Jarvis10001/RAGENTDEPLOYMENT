@@ -362,7 +362,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({ currentChartSpec: spec });
     // Auto-switch to chart tab when spec arrives
     if (spec) {
-      set({ rightPanelTab: "chart", rightPanelOpen: true });
+      set({ rightPanelTab: "chart" });
     }
   },
 

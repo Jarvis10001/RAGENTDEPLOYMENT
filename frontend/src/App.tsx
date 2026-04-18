@@ -10,7 +10,7 @@ import { useCallback, useEffect } from "react";
 import { useStore } from "./store/useStore";
 import { useStream } from "./hooks/useStream";
 import { useKeyboard } from "./hooks/useKeyboard";
-import { ProgressBar } from "./components/ui/ProgressBar";
+
 import { CommandPalette } from "./components/ui/CommandPalette";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -47,8 +47,7 @@ export default function App(): React.ReactElement {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-bg-primary">
-      {/* Progress bar at very top */}
-      <ProgressBar />
+
 
       {/* Command palette overlay */}
       <CommandPalette />

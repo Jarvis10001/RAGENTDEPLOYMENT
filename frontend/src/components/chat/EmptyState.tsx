@@ -73,7 +73,7 @@ export function EmptyState({
           className="mb-4"
         >
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1] bg-gradient-to-b from-[#FFFFFF] to-[#A3A3A3] text-transparent bg-clip-text pb-2">
-            Hi there, Ui Mahadi<br />
+            Hi there,<br />
             What would you like to know?
           </h1>
         </motion.div>

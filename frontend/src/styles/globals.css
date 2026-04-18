@@ -401,14 +401,11 @@ textarea {
   padding: 2px;
   background: conic-gradient(
     from var(--glow-angle),
-    #4F46E5 0%,
-    #7C3AED 15%,
-    #4F46E5 30%,
-    #A78BFA 45%,
-    #4F46E5 60%,
-    #7C3AED 75%,
-    #4F46E5 90%,
-    #A78BFA 100%
+    rgba(124, 58, 237, 0.6) 0%,
+    transparent 20%,
+    rgba(99, 102, 241, 0.6) 50%,
+    transparent 70%,
+    rgba(124, 58, 237, 0.6) 100%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -427,14 +424,12 @@ textarea {
   background: conic-gradient(
     from var(--glow-angle),
     transparent 0%,
-    rgba(124, 58, 237, 0.15) 15%,
-    transparent 30%,
-    rgba(79, 70, 229, 0.10) 45%,
-    transparent 60%,
-    rgba(124, 58, 237, 0.15) 75%,
-    transparent 90%
+    rgba(124, 58, 237, 0.08) 25%,
+    transparent 50%,
+    rgba(99, 102, 241, 0.08) 75%,
+    transparent 100%
   );
-  filter: blur(12px);
+  filter: blur(8px);
   pointer-events: none;
   animation: glow-rotate 2.5s linear infinite;
   z-index: 0;
