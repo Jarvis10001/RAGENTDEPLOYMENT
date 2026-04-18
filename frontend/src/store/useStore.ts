@@ -57,6 +57,7 @@ export interface ToolCall {
   output: string;
   durationMs: number;
   status: "running" | "success" | "error";
+  thinking?: string;
 }
 
 export interface DataPreview {
