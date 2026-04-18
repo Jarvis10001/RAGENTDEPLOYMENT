@@ -6,8 +6,10 @@
  * Features: theme-aware, responsive, animated, curated color palette
  */
 
-import { memo } from "react";
+import { memo, useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { ChartToolbar } from "./ChartToolbar";
+import { InlineDataCard } from "./InlineDataCard";
 import {
   BarChart,
   Bar,
@@ -44,13 +46,17 @@ interface ChartRendererProps {
   spec: ChartSpec;
   height?: number;
   compact?: boolean;
+  showDataCard?: boolean;
 }
 
 function ChartRendererInner({
   spec,
   height = 320,
   compact = false,
+  showDataCard = false,
 }: ChartRendererProps): React.ReactElement {
+  const [hovered, setHovered] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
   const colors = spec.colors?.length ? spec.colors : DEFAULT_COLORS;
   const { chart_type, data, x_key, y_keys, title } = spec;
 
@@ -277,21 +283,38 @@ function ChartRendererInner({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="chart-container my-4"
+      className="chart-container my-4 relative group/chart"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* Chart header */}
-      {title && (
-        <div className="px-4 pt-3 pb-1">
-          <h4 className="text-sm font-semibold text-text-primary">{title}</h4>
-        </div>
+      {/* Hover toolbar */}
+      {showDataCard && (
+        <ChartToolbar spec={spec} visible={hovered} chartRef={chartRef} />
       )}
 
-      {/* Chart body */}
-      <div className="px-2 pb-3" style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          {renderChart()}
-        </ResponsiveContainer>
+      {/* Wrapper for image export (needs solid background) */}
+      <div ref={chartRef} className="bg-bg-surface rounded-xl pb-1" style={{ contain: "paint" }}>
+        {/* Chart header */}
+        {title && (
+          <div className="px-4 pt-3 pb-1">
+            <h4 className="text-sm font-semibold text-text-primary">{title}</h4>
+          </div>
+        )}
+
+        {/* Chart body */}
+        <div className="px-2 pb-2" style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart()}
+          </ResponsiveContainer>
+        </div>
       </div>
+
+      {/* Inline data card */}
+      {showDataCard && data && data.length > 0 && (
+        <div className="px-3 pb-3">
+          <InlineDataCard data={data} />
+        </div>
+      )}
     </motion.div>
   );
 }

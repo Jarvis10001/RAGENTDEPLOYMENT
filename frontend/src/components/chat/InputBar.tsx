@@ -1,6 +1,6 @@
 /**
- * InputBar — premium input area with gradient glow border,
- * icon send button, and stop streaming button.
+ * InputBar — premium input area with animated gradient glow border,
+ * auto-expanding textarea, character counter, and send/stop controls.
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -12,8 +12,11 @@ interface InputBarProps {
   isStreaming: boolean;
 }
 
+const MAX_HEIGHT = 192; // ~8 lines at leading-6
+
 export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactElement {
   const [value, setValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -21,8 +24,7 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = "auto";
-    const maxHeight = 5 * 24; // ~5 lines
-    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+    textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_HEIGHT)}px`;
   }, []);
 
   useEffect(() => {
@@ -52,18 +54,46 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
   );
 
   const canSend = value.trim().length > 0 && !isStreaming;
+  const charCount = value.length;
 
   return (
     <div className="flex-shrink-0 border-t border-border bg-bg-primary/80 backdrop-blur-sm px-4 py-3">
       <div className="max-w-4xl mx-auto">
-        <div className="gradient-border rounded-2xl">
+        {/* Outer glow wrapper */}
+        <motion.div
+          className="relative rounded-2xl"
+          animate={{
+            boxShadow: isFocused
+              ? "0 0 0 1px rgba(99, 102, 241, 0.4), 0 0 24px rgba(99, 102, 241, 0.12), 0 0 48px rgba(139, 92, 246, 0.06)"
+              : "0 0 0 0px transparent, 0 0 0px transparent, 0 0 0px transparent",
+          }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          {/* Gradient border overlay — visible on focus */}
+          <motion.div
+            className="absolute -inset-[1px] rounded-2xl pointer-events-none"
+            style={{
+              background: "linear-gradient(135deg, #6366F1, #8B5CF6, #A78BFA, #6366F1)",
+              backgroundSize: "300% 300%",
+            }}
+            animate={{
+              opacity: isFocused ? 1 : 0,
+              backgroundPosition: isFocused ? ["0% 50%", "100% 50%", "0% 50%"] : "0% 50%",
+            }}
+            transition={{
+              opacity: { duration: 0.3 },
+              backgroundPosition: { duration: 4, repeat: Infinity, ease: "linear" },
+            }}
+          />
+
+          {/* Inner container (sits on top of gradient border) */}
           <div
             className={`
-              flex items-end gap-2 rounded-2xl
-              border border-border bg-bg-surface
+              relative flex items-end gap-2 rounded-2xl
+              bg-bg-surface
               px-4 py-2.5
-              focus-within:border-accent/40
-              transition-all duration-300
+              transition-colors duration-300
+              ${!isFocused ? "border border-border" : "border border-transparent"}
               ${isStreaming ? "border-accent/20" : ""}
             `}
           >
@@ -73,6 +103,8 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               placeholder="Ask about your revenue, campaigns, or customers..."
               disabled={isStreaming}
               rows={1}
@@ -82,13 +114,33 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
                 outline-none resize-none
                 py-1 leading-6
                 disabled:opacity-50
+                max-h-48
               "
+              style={{ overflowY: "auto" }}
             />
 
-            {/* Keyboard hint */}
-            <span className="text-2xs text-text-muted whitespace-nowrap pb-1.5 hidden sm:block select-none">
-              {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} ↵
-            </span>
+            {/* Bottom-row meta: character count + keyboard hint */}
+            <div className="flex items-center gap-2 pb-1.5 flex-shrink-0">
+              {/* Character counter — appears after 50 chars */}
+              <AnimatePresence>
+                {charCount > 50 && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.15 }}
+                    className="text-[10px] text-text-muted/50 tabular-nums select-none"
+                  >
+                    {charCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+
+              {/* Keyboard hint */}
+              <span className="text-2xs text-text-muted whitespace-nowrap hidden sm:block select-none">
+                {navigator.platform.includes("Mac") ? "⌘" : "Ctrl"} ↵
+              </span>
+            </div>
 
             {/* Send / Stop button */}
             <AnimatePresence mode="wait">
@@ -140,7 +192,7 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

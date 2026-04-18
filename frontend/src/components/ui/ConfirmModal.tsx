@@ -1,4 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 
 export function ConfirmModal({
   isOpen,
@@ -13,6 +15,12 @@ export function ConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Prevent body scrolling when modal is open
   if (typeof window !== "undefined") {
     if (isOpen) {
@@ -22,7 +30,7 @@ export function ConfirmModal({
     }
   }
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -68,4 +76,8 @@ export function ConfirmModal({
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+
+  return createPortal(modalContent, document.body);
 }

@@ -159,7 +159,7 @@ export function RightPanel(): React.ReactElement | null {
                 className="p-3"
               >
                 {currentChartSpec ? (
-                  <ChartRenderer spec={currentChartSpec} height={380} />
+                  <ChartRenderer spec={currentChartSpec} height={380} showDataCard={false} />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-60 text-center">
                     <div className="w-12 h-12 rounded-xl bg-bg-elevated flex items-center justify-center mb-3">
