@@ -1,7 +1,8 @@
 /**
  * InputBar — premium input area with animated gradient glow border,
- * auto-expanding textarea, character counter, mode toggle (Fast / Thinking),
- * and send/stop controls.
+ * auto-expanding textarea, character counter, and send/stop controls.
+ * InputBar — premium input area with gradient glow border,
+ * mode toggle (Fast / Thinking), icon send button, and stop streaming button.
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -164,13 +165,17 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
+<<<<<<< HEAD
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
+              placeholder="Ask about your revenue, campaigns, or customers..."
+=======
               placeholder={
                 chatMode === "thinking"
                   ? "Ask a complex question for deeper analysis..."
                   : "Ask about your revenue, campaigns, or customers..."
               }
+>>>>>>> bb199f2367bdff62a9e63335519d0ee05c0e64d9
               disabled={isStreaming}
               rows={1}
               className="
@@ -244,10 +249,9 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
                     flex-shrink-0 w-8 h-8 rounded-lg
                     flex items-center justify-center
                     transition-all duration-200 focus-ring
-                    ${
-                      canSend
-                        ? "bg-accent text-white hover:bg-accent-hover shadow-accent"
-                        : "bg-bg-elevated text-text-muted cursor-not-allowed"
+                    ${canSend
+                      ? "bg-accent text-white hover:bg-accent-hover shadow-accent"
+                      : "bg-bg-elevated text-text-muted cursor-not-allowed"
                     }
                   `}
                   aria-label="Send message"
