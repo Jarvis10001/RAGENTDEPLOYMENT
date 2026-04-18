@@ -72,18 +72,24 @@ def _extract_text(output: object) -> str:
 
         [{'type': 'text', 'text': '...', 'index': 0, 'extras': {'signature': '...'}}]
 
-    This helper extracts only the ``'text'`` parts and strips thought
-    signatures so the frontend always receives a clean string.
+    Gemini 2.5+ may also append plain strings as continuation fragments
+    after the initial dict block.  This helper captures both forms.
     """
     if isinstance(output, str):
         return output
     if isinstance(output, list):
         parts = []
         for block in output:
-            if isinstance(block, dict) and block.get("type") == "text":
-                text = block.get("text", "")
-                if text:  # skip empty thought blocks
-                    parts.append(text)
+            if isinstance(block, dict):
+                # Skip thinking blocks, keep text blocks
+                if block.get("type") == "text":
+                    text = block.get("text", "")
+                    if text:
+                        parts.append(text)
+            elif isinstance(block, str):
+                # Plain string continuation fragment
+                if block.strip():
+                    parts.append(block)
         return "".join(parts).strip() or "No response generated."
     return str(output)
 
@@ -93,6 +99,7 @@ async def _stream_chat(
     session_id: str,
     history_context: str,
     raw_history: list[HistoryItem] = None,
+    mode: str = "fast",
 ) -> AsyncGenerator[str, None]:
     """Run the agent in a thread and yield SSE events.
 
@@ -105,7 +112,10 @@ async def _stream_chat(
     start_ts = time.perf_counter()
 
     try:
-        executor = session_manager.get_or_create(session_id)
+        executor = session_manager.get_or_create(session_id, mode=mode)
+
+        # Emit mode so frontend can display it
+        yield _sse_event({"type": "mode", "mode": mode})
 
         # Restore memory from frontend if backend restarted
         if getattr(executor, "memory", None) is not None and raw_history:
@@ -243,7 +253,13 @@ async def chat(request: ChatRequest) -> StreamingResponse:
     history_context = "\n".join(history_lines)
 
     return StreamingResponse(
-        _stream_chat(request.message, request.session_id, history_context, request.history),
+        _stream_chat(
+            request.message,
+            request.session_id,
+            history_context,
+            request.history,
+            mode=request.mode,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

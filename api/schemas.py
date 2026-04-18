@@ -23,6 +23,10 @@ class ChatRequest(BaseModel):
         default_factory=list,
         description="Recent conversation history for context.",
     )
+    mode: Literal["fast", "thinking"] = Field(
+        default="fast",
+        description="Model mode: 'fast' for quick answers, 'thinking' for deeper analysis.",
+    )
 
 
 class HealthResponse(BaseModel):
