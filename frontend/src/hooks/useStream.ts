@@ -59,6 +59,7 @@ export function useStream(): UseStreamReturn {
   const setConnectionError = useStore((s) => s.setConnectionError);
   const setRightPanelOpen = useStore((s) => s.setRightPanelOpen);
   const setChartSpec = useStore((s) => s.setChartSpec);
+  const chatMode = useStore((s) => s.chatMode);
 
   const sendMessage = useCallback(
     (message: string) => {
@@ -222,6 +223,7 @@ export function useStream(): UseStreamReturn {
         message,
         sessionId: currentConvId,
         history,
+        mode: chatMode,
         onEvent: handleEvent,
         onError: handleError,
         onDone: handleDone,
@@ -246,6 +248,7 @@ export function useStream(): UseStreamReturn {
       setLastToolsUsed,
       setRightPanelOpen,
       setChartSpec,
+      chatMode,
     ]
   );
 

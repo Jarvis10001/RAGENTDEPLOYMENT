@@ -17,6 +17,8 @@ import {
 
 // ── Domain types ─────────────────────────────────────────────────
 
+export type ChatMode = "fast" | "thinking";
+
 export interface ChartSpec {
   chart_type: "bar" | "line" | "area" | "pie" | "scatter" | "radar";
   title: string;
@@ -82,6 +84,7 @@ interface AppState {
   theme: ThemeValue;
 
   // Streaming
+  chatMode: ChatMode;
   isStreaming: boolean;
   streamingContent: string;
 
@@ -116,6 +119,7 @@ interface AppState {
   toggleTheme: () => void;
 
   // Actions — Streaming
+  setChatMode: (mode: ChatMode) => void;
   setStreaming: (streaming: boolean) => void;
   setStreamingContent: (content: string) => void;
   appendStreamingContent: (token: string) => void;
@@ -178,6 +182,7 @@ export const useStore = create<AppState>((set, get) => ({
   rightPanelTab: "tools",
   commandPaletteOpen: false,
   theme: loadTheme(),
+  chatMode: "fast" as ChatMode,
   isStreaming: false,
   streamingContent: "",
   toolCalls: [],
@@ -307,6 +312,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   // ── Streaming ────────────────────────────────────────────────
 
+  setChatMode: (mode) => set({ chatMode: mode }),
   setStreaming: (streaming) => set({ isStreaming: streaming }),
 
   setStreamingContent: (content) => set({ streamingContent: content }),

@@ -94,16 +94,20 @@ def _extract_text(output: object) -> str:
     """Normalize Gemini output to a plain string.
 
     ``include_thoughts=True`` wraps the response in a list of content-block
-    dicts.  This function extracts only the plain-text parts.
+    dicts.  Gemini 2.5+ may also append plain strings as continuation
+    fragments after the initial dict block.  This helper captures both forms.
     """
     if isinstance(output, str):
         return output
     if isinstance(output, list):
-        parts = [
-            block.get("text", "")
-            for block in output
-            if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
-        ]
+        parts = []
+        for block in output:
+            if isinstance(block, dict):
+                if block.get("type") == "text" and block.get("text"):
+                    parts.append(block["text"])
+            elif isinstance(block, str):
+                if block.strip():
+                    parts.append(block)
         return "".join(parts).strip() or "No response generated."
     return str(output)
 
@@ -154,47 +158,73 @@ CRITICAL INSTRUCTION FOR GEMINI MODELS:
 
 from google.api_core.retry import Retry
 
+# ── Model profiles per mode ──────────────────────────────────────────
+_MODE_PROFILES: dict[str, dict] = {
+    "fast": {
+        "model": settings.primary_model,           # gemini-3.1-flash-lite-preview
+        "max_tokens": settings.primary_max_tokens,  # 2048
+        "fallback": "gemini-2.5-flash",
+        "suffix": "\n\nALWAYS structure your final answer beautifully with markdown: use bullet points, clear headings, and highlight key metrics. Don't mention the technical names of the tools used.",
+    },
+    "thinking": {
+        "model": "gemini-2.5-flash",
+        "max_tokens": 8192,
+        "fallback": "gemini-2.0-flash",
+        "suffix": (
+            "\n\nYou are in DEEP THINKING mode. Your response MUST be significantly "
+            "more comprehensive and detailed than a normal answer."
+            "\n- Provide thorough, multi-paragraph analysis with concrete evidence."
+            "\n- Include exact numbers, percentages, and verbatim customer quotes."
+            "\n- Discuss strategic implications, root causes, and second-order effects."
+            "\n- Present trade-offs and alternative perspectives where relevant."
+            "\n- End with prioritised, actionable recommendations."
+            "\nALWAYS structure your final answer beautifully with markdown: "
+            "use bullet points, clear headings, tables for data, and highlight key metrics. "
+            "Don't mention the technical names of the tools used. "
+            "Your response should be AT LEAST twice as detailed as a quick answer would be."
+        ),
+    },
+}
+
 def get_agent_executor(
     memory: ConversationBufferMemory | None = None,
+    mode: str = "fast",
 ) -> AgentExecutor:
     """Build and return a fully configured AgentExecutor.
-
-    This function is designed to be called once per Streamlit session.
-    Each call creates a new primary LLM instance but reuses the shared
-    sub-agent singleton from :mod:`src.llm`.
-
-    Also runs a lightweight database health check on first build to
-    surface connection issues immediately rather than on the first query.
 
     Args:
         memory: Optional pre-built memory instance. If ``None``, a fresh
                 :class:`ConversationBufferMemory` is created via
                 :func:`~src.memory.session_memory.create_memory`.
+        mode: ``'fast'`` for quick answers (Flash Lite) or
+              ``'thinking'`` for deeper analysis (Gemini 2.5 Flash).
 
     Returns:
         :class:`AgentExecutor` ready for ``.invoke()`` or ``.stream()`` calls.
     """
+    profile = _MODE_PROFILES.get(mode, _MODE_PROFILES["fast"])
+
     # ── Health check — verify DB connectivity early ───────────────────
     if not health_check():
         logger.warning(
             "Supabase health check failed — DB-dependent tools may not work."
         )
 
-    # ── Primary LLM (best reasoning quality — used for ReAct loop) ───
+    # ── Primary LLM — selected by mode ───────────────────────────────
     primary_llm = ChatGoogleGenerativeAI(
-        model=settings.primary_model,
+        model=profile["model"],
         google_api_key=settings.google_api_key,
         temperature=0.0,
-        max_output_tokens=settings.primary_max_tokens,
+        max_output_tokens=profile["max_tokens"],
         max_retries=0,
         timeout=120.0,
         include_thoughts=True,
     ).bind(retry=Retry(initial=0.0, maximum=0.0, multiplier=1.0, timeout=0.0))
     fallback_llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model=profile["fallback"],
         google_api_key=settings.google_api_key,
         temperature=0.0,
-        max_output_tokens=settings.primary_max_tokens,
+        max_output_tokens=profile["max_tokens"],
         max_retries=0,
         timeout=120.0,
         include_thoughts=True,
@@ -220,7 +250,7 @@ def get_agent_executor(
     # ── Fetch and customise the tool-calling prompt ───────────
     tool_prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", _SYSTEM_PREFIX + "\n\nALWAYS structure your final answer beautifully with markdown: use bullet points, clear headings, and highlight key metrics. Don't mention the technical names of the tools used."),
+            ("system", _SYSTEM_PREFIX + profile["suffix"]),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
@@ -245,8 +275,11 @@ def get_agent_executor(
     )
 
     logger.info(
-        "AgentExecutor ready — model=%s fallback=gemini-2.5-flash tools=%s max_iterations=None",
-        settings.primary_model,
+        "AgentExecutor ready — mode=%s model=%s fallback=%s max_tokens=%d tools=%s",
+        mode,
+        profile["model"],
+        profile["fallback"],
+        profile["max_tokens"],
         [t.name for t in tools],
     )
 

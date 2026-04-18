@@ -33,16 +33,20 @@ def extract_text(output: object) -> str:
     """Normalize Gemini output to a plain string.
 
     ``include_thoughts=True`` wraps the response in a list of content-block
-    dicts. This extracts only the plain-text parts for tools using the sub-LLM.
+    dicts. Gemini 2.5+ may also append plain strings as continuation
+    fragments after the initial dict block.  This helper captures both forms.
     """
     if isinstance(output, str):
         return output
     if isinstance(output, list):
-        parts = [
-            block.get("text", "")
-            for block in output
-            if isinstance(block, dict) and block.get("type") == "text" and block.get("text")
-        ]
+        parts = []
+        for block in output:
+            if isinstance(block, dict):
+                if block.get("type") == "text" and block.get("text"):
+                    parts.append(block["text"])
+            elif isinstance(block, str):
+                if block.strip():
+                    parts.append(block)
         return "".join(parts).strip() or "No response generated."
     return str(output)
 

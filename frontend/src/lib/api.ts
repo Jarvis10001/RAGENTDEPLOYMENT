@@ -3,7 +3,7 @@
  */
 
 import axios from "axios";
-import type { ChartSpec } from "../store/useStore";
+import type { ChartSpec, ChatMode } from "../store/useStore";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -69,6 +69,7 @@ export interface StreamChatParams {
   message: string;
   sessionId: string;
   history: HistoryItem[];
+  mode?: ChatMode;
   onEvent: (event: SSEEvent) => void;
   onError: (error: string) => void;
   onDone: () => void;
@@ -79,6 +80,7 @@ export async function streamChat({
   message,
   sessionId,
   history,
+  mode = "fast",
   onEvent,
   onError,
   onDone,
@@ -94,6 +96,7 @@ export async function streamChat({
         message,
         session_id: sessionId,
         history,
+        mode,
       }),
       signal,
     });
