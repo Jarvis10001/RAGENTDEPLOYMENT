@@ -51,9 +51,14 @@ export function useConversation(): UseConversationReturn {
   const updateConversationTitle = useStore((s) => s.updateConversationTitle);
 
   const createNew = useCallback(() => {
+    const emptyConv = useStore.getState().conversations.find((c) => c.messages.length === 0);
+    if (emptyConv) {
+      setActiveConversation(emptyConv.id);
+      return;
+    }
     const conv = createConversation("New conversation");
     addConversation(conv);
-  }, [addConversation]);
+  }, [addConversation, setActiveConversation]);
 
   const switchTo = useCallback(
     (id: string) => {

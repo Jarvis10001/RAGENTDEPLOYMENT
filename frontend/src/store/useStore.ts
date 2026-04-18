@@ -80,6 +80,7 @@ interface AppState {
   sidebarOpen: boolean;
   rightPanelOpen: boolean;
   rightPanelTab: "tools" | "data" | "sources" | "chart";
+  commandPaletteOpen: boolean;
   theme: ThemeValue;
 
   // Streaming
@@ -116,6 +117,8 @@ interface AppState {
   toggleRightPanel: () => void;
   setRightPanelOpen: (open: boolean) => void;
   setRightPanelTab: (tab: "tools" | "data" | "sources" | "chart") => void;
+  toggleCommandPalette: () => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   toggleTheme: () => void;
 
   // Actions — Streaming
@@ -184,6 +187,7 @@ export const useStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
   rightPanelOpen: false,
   rightPanelTab: "tools",
+  commandPaletteOpen: false,
   theme: loadTheme(),
   chatMode: "fast" as ChatMode,
   isStreaming: false,
@@ -304,6 +308,8 @@ export const useStore = create<AppState>((set, get) => ({
   toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
   setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
   setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
+  toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
 
   toggleTheme: () => {
     const next: ThemeValue = get().theme === "dark" ? "light" : "dark";

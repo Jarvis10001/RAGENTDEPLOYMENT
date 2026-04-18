@@ -23,6 +23,17 @@ Copy the `.env.example` file to create your own `.env` configuration.
 cp .env.example .env
 ```
 
+For local runs, make sure this exists in `.env`:
+```bash
+FRONTEND_URL=http://localhost:5173
+```
+
+Also create frontend env so UI calls local backend:
+```bash
+cd frontend
+cp .env.example .env
+```
+
 **2. Obtain Required Credentials**
 You will need to fill out the following inside your `.env` file:
 - `GOOGLE_API_KEY`: Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey).

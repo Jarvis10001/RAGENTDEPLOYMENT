@@ -3,9 +3,11 @@
  *
  * Collapsed: 56px icon strip with logo, new chat, search, theme, settings
  * Expanded:  260px panel with conversation list, search, branding
+ * - Fluid Framer Motion layout animations on list items
  */
 
 import { useEffect, useCallback, useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useConversation, groupByDate } from "../../hooks/useConversation";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { useStore } from "../../store/useStore";
@@ -22,6 +24,12 @@ import {
   IconSettings,
 } from "../ui/icons";
 
+const itemVariants = {
+  initial: { opacity: 0, x: -12, scale: 0.95 },
+  animate: { opacity: 1, x: 0, scale: 1 },
+  exit: { opacity: 0, x: -12, scale: 0.95, transition: { duration: 0.2 } },
+};
+
 function ConversationItem({
   id,
   title,
@@ -36,10 +44,16 @@ function ConversationItem({
   onDelete: () => void;
 }): React.ReactElement {
   return (
-    <div
+    <motion.div
+      layout
+      variants={itemVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ type: "spring", stiffness: 500, damping: 35, mass: 0.8 }}
       className={`
         group relative flex items-center rounded-lg cursor-pointer
-        transition-all duration-200
+        transition-colors duration-200
         ${
           isActive
             ? "bg-accent/20 border-l-2 border-l-accent pl-2.5"
@@ -71,15 +85,18 @@ function ConversationItem({
       >
         <IconTrash size={13} />
       </button>
-    </div>
+    </motion.div>
   );
 }
 
 function SectionLabel({ label }: { label: string }): React.ReactElement {
   return (
-    <div className="px-3 py-1.5 text-[11px] font-semibold text-[#737373] uppercase tracking-wider">
+    <motion.div
+      layout
+      className="px-3 py-1.5 text-[11px] font-semibold text-[#737373] uppercase tracking-wider"
+    >
       {label}
-    </div>
+    </motion.div>
   );
 }
 
@@ -266,58 +283,70 @@ export function Sidebar(): React.ReactElement {
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto py-1 px-2 space-y-0.5">
         {filteredConversations.length === 0 && (
-          <div className="px-3 py-8 text-sm text-text-muted text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="px-3 py-8 text-sm text-text-muted text-center"
+          >
             {searchQuery ? "No matches" : "No conversations yet"}
-          </div>
+          </motion.div>
         )}
 
-        {grouped.today.length > 0 && (
-          <div>
-            <SectionLabel label="Today" />
-            {grouped.today.map((c) => (
-              <ConversationItem
-                key={c.id}
-                id={c.id}
-                title={c.title}
-                isActive={c.id === activeConversationId}
-                onSelect={() => switchTo(c.id)}
-                onDelete={() => setDeletingId(c.id)}
-              />
-            ))}
-          </div>
-        )}
+        <AnimatePresence mode="popLayout">
+          {grouped.today.length > 0 && (
+            <motion.div layout key="section-today">
+              <SectionLabel label="Today" />
+              <AnimatePresence mode="popLayout">
+                {grouped.today.map((c) => (
+                  <ConversationItem
+                    key={c.id}
+                    id={c.id}
+                    title={c.title}
+                    isActive={c.id === activeConversationId}
+                    onSelect={() => switchTo(c.id)}
+                    onDelete={() => setDeletingId(c.id)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
 
-        {grouped.yesterday.length > 0 && (
-          <div className="mt-2">
-            <SectionLabel label="Yesterday" />
-            {grouped.yesterday.map((c) => (
-              <ConversationItem
-                key={c.id}
-                id={c.id}
-                title={c.title}
-                isActive={c.id === activeConversationId}
-                onSelect={() => switchTo(c.id)}
-                onDelete={() => setDeletingId(c.id)}
-              />
-            ))}
-          </div>
-        )}
+          {grouped.yesterday.length > 0 && (
+            <motion.div layout key="section-yesterday" className="mt-2">
+              <SectionLabel label="Yesterday" />
+              <AnimatePresence mode="popLayout">
+                {grouped.yesterday.map((c) => (
+                  <ConversationItem
+                    key={c.id}
+                    id={c.id}
+                    title={c.title}
+                    isActive={c.id === activeConversationId}
+                    onSelect={() => switchTo(c.id)}
+                    onDelete={() => setDeletingId(c.id)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
 
-        {grouped.older.length > 0 && (
-          <div className="mt-2">
-            <SectionLabel label="Older" />
-            {grouped.older.map((c) => (
-              <ConversationItem
-                key={c.id}
-                id={c.id}
-                title={c.title}
-                isActive={c.id === activeConversationId}
-                onSelect={() => switchTo(c.id)}
-                onDelete={() => setDeletingId(c.id)}
-              />
-            ))}
-          </div>
-        )}
+          {grouped.older.length > 0 && (
+            <motion.div layout key="section-older" className="mt-2">
+              <SectionLabel label="Older" />
+              <AnimatePresence mode="popLayout">
+                {grouped.older.map((c) => (
+                  <ConversationItem
+                    key={c.id}
+                    id={c.id}
+                    title={c.title}
+                    isActive={c.id === activeConversationId}
+                    onSelect={() => switchTo(c.id)}
+                    onDelete={() => setDeletingId(c.id)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Bottom section */}

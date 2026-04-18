@@ -331,7 +331,7 @@ function MessageItemInner({ message }: MessageItemProps): React.ReactElement {
 
           {/* Inline chart */}
           {chartSpec && !message.isStreaming && (
-            <ChartRenderer spec={chartSpec} />
+            <ChartRenderer spec={chartSpec} showDataCard={true} />
           )}
 
           {/* Message content */}

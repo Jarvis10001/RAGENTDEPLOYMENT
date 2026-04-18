@@ -1,6 +1,6 @@
 /**
  * InputBar — premium input area with animated glowing border during streaming,
- * mode toggle (Fast / Thinking), and send/stop buttons.
+ * mode toggle (Fast / Thinking), character counter, and attachments.
  *
  * When the agent is streaming, a revolving conic-gradient border
  * animates around the chat box (the "energy" effect).
@@ -16,8 +16,11 @@ interface InputBarProps {
   isStreaming: boolean;
 }
 
+const MAX_HEIGHT = 192; // ~8 lines at leading-6
+
 export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactElement {
   const [value, setValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const chatMode = useStore((s) => s.chatMode);
@@ -61,6 +64,7 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
   }, [chatMode, setChatMode]);
 
   const canSend = value.trim().length > 0 && !isStreaming;
+  const charCount = value.length;
 
   return (
     <div className="flex-shrink-0 px-4 py-4">
@@ -237,7 +241,7 @@ export function InputBar({ onSend, isStreaming }: InputBarProps): React.ReactEle
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

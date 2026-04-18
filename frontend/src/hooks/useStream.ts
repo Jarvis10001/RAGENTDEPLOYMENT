@@ -3,7 +3,7 @@
  * events to the Zustand store in real time.
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { streamChat, type SSEEvent, type HistoryItem } from "../lib/api";
 import {
   useStore,
@@ -267,7 +267,20 @@ export function useStream(): UseStreamReturn {
   const cancelStream = useCallback(() => {
     abortRef.current?.abort();
     setStreaming(false);
+    
+    // Finalize the message so the UI stops showing the streaming cursor/thinking
+    const currentState = useStore.getState();
+    const activeId = currentState.activeConversationId;
+    if (activeId) {
+      currentState.finalizeAssistantMessage(activeId, fullContentRef.current);
+    }
   }, [setStreaming]);
+
+  useEffect(() => {
+    const handleCancel = () => cancelStream();
+    window.addEventListener("ri:cancel-stream", handleCancel);
+    return () => window.removeEventListener("ri:cancel-stream", handleCancel);
+  }, [cancelStream]);
 
   return { sendMessage, cancelStream, isStreaming };
 }
