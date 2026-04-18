@@ -60,6 +60,7 @@ export function useStream(): UseStreamReturn {
   const setRightPanelOpen = useStore((s) => s.setRightPanelOpen);
   const setChartSpec = useStore((s) => s.setChartSpec);
   const chatMode = useStore((s) => s.chatMode);
+  const addAgentLog = useStore((s) => s.addAgentLog);
 
   const sendMessage = useCallback(
     (message: string) => {
@@ -129,7 +130,12 @@ export function useStream(): UseStreamReturn {
               output: "",
               durationMs: 0,
               status: "running",
+              thinking: event.thinking || "",
             });
+            // Add thinking text to agent logs if present
+            if (event.thinking) {
+              addAgentLog(event.thinking);
+            }
             toolsUsed.add(toolCategory(event.tool));
             setRightPanelOpen(true);
             break;
@@ -168,6 +174,11 @@ export function useStream(): UseStreamReturn {
 
           case "chart": {
             setChartSpec(event.spec);
+            break;
+          }
+
+          case "agent_log": {
+            addAgentLog(event.content);
             break;
           }
 
@@ -249,6 +260,7 @@ export function useStream(): UseStreamReturn {
       setRightPanelOpen,
       setChartSpec,
       chatMode,
+      addAgentLog,
     ]
   );
 

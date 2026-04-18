@@ -97,6 +97,9 @@ interface AppState {
   // Error
   connectionError: string | null;
 
+  // Agent debug logs
+  agentLogs: string[];
+
   // Actions — Conversations
   setConversations: (conversations: Conversation[]) => void;
   setActiveConversation: (id: string | null) => void;
@@ -132,6 +135,10 @@ interface AppState {
 
   // Actions — Error
   setConnectionError: (error: string | null) => void;
+
+  // Actions — Agent Logs
+  addAgentLog: (log: string) => void;
+  clearAgentLogs: () => void;
 
   // Computed helpers
   getActiveConversation: () => Conversation | undefined;
@@ -187,6 +194,7 @@ export const useStore = create<AppState>((set, get) => ({
   lastToolsUsed: [],
   currentChartSpec: null,
   connectionError: null,
+  agentLogs: [],
 
   // ── Conversations ────────────────────────────────────────────
 
@@ -334,6 +342,7 @@ export const useStore = create<AppState>((set, get) => ({
       lastToolsUsed: [],
       streamingContent: "",
       currentChartSpec: null,
+      agentLogs: [],
     }),
 
   setDataPreview: (preview) => set({ dataPreview: preview }),
@@ -354,6 +363,13 @@ export const useStore = create<AppState>((set, get) => ({
   // ── Error ────────────────────────────────────────────────────
 
   setConnectionError: (error) => set({ connectionError: error }),
+
+  // ── Agent Logs ───────────────────────────────────────────────
+
+  addAgentLog: (log) =>
+    set((s) => ({ agentLogs: [...s.agentLogs, log] })),
+
+  clearAgentLogs: () => set({ agentLogs: [] }),
 
   // ── Computed ─────────────────────────────────────────────────
 

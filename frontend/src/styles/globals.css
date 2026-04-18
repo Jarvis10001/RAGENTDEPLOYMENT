@@ -5,24 +5,24 @@
 /* ── Design tokens (dark default) ──────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  --color-bg-primary: #09090B;
-  --color-bg-surface: #131316;
-  --color-bg-elevated: #1C1C21;
-  --color-border: #27272A;
-  --color-border-muted: #1E1E22;
-  --color-text-primary: #FAFAFA;
-  --color-text-secondary: #A1A1AA;
-  --color-text-muted: #52525B;
+  --color-bg-primary: #171717;
+  --color-bg-surface: #171717;
+  --color-bg-elevated: #212121;
+  --color-border: #333333;
+  --color-border-muted: #262626;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #A3A3A3;
+  --color-text-muted: #737373;
   --color-accent: #6366F1;
   --color-accent-hover: #818CF8;
   --color-accent-muted: rgba(99, 102, 241, 0.10);
   --gradient-primary: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A78BFA 100%);
   --gradient-accent: linear-gradient(135deg, #6366F1, #8B5CF6);
   --gradient-surface: linear-gradient(180deg, rgba(99, 102, 241, 0.03) 0%, transparent 100%);
-  --glass-bg: rgba(19, 19, 22, 0.75);
-  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-bg: rgba(17, 17, 17, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.04);
   --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.25);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
   color-scheme: dark;
 }
 
@@ -108,8 +108,8 @@ body {
 
 /* ── Scrollbar ─────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -124,6 +124,21 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* ── Custom Scrollbar for Reasoning Block ───────────── */
+.reasoning-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.reasoning-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reasoning-scrollbar::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+.reasoning-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #525252;
 }
 
 /* ── Selection ─────────────────────────────────────────────────── */
@@ -336,6 +351,81 @@ textarea {
 
 .gradient-border:focus-within::before {
   opacity: 1;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   ── ANIMATED GLOW BORDER — revolving energy around chat input ──
+   ──────────────────────────────────────────────────────────────── */
+
+/* CSS custom property for the rotating angle */
+@property --glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes glow-rotate {
+  0%   { --glow-angle: 0deg; }
+  100% { --glow-angle: 360deg; }
+}
+
+.input-glow-wrapper {
+  position: relative;
+  border-radius: 1rem;
+}
+
+/* The revolving glow border — only visible when .is-glowing is active */
+.input-glow-wrapper.is-glowing::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    #4F46E5 0%,
+    #7C3AED 15%,
+    #4F46E5 30%,
+    #A78BFA 45%,
+    #4F46E5 60%,
+    #7C3AED 75%,
+    #4F46E5 90%,
+    #A78BFA 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: glow-rotate 2.5s linear infinite;
+  z-index: 1;
+}
+
+/* Outer glow shadow for the energy effect */
+.input-glow-wrapper.is-glowing::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    rgba(124, 58, 237, 0.15) 15%,
+    transparent 30%,
+    rgba(79, 70, 229, 0.10) 45%,
+    transparent 60%,
+    rgba(124, 58, 237, 0.15) 75%,
+    transparent 90%
+  );
+  filter: blur(12px);
+  pointer-events: none;
+  animation: glow-rotate 2.5s linear infinite;
+  z-index: 0;
+}
+
+/* Inner content sits above the glow layers */
+.input-glow-wrapper > * {
+  position: relative;
+  z-index: 2;
 }
 
 /* ── Chart container ───────────────────────────────────────────── */

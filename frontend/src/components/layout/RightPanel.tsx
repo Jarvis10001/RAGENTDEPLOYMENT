@@ -51,7 +51,7 @@ export function RightPanel(): React.ReactElement | null {
         className="flex-shrink-0 border-l border-border bg-bg-surface/50 backdrop-blur-sm flex flex-col h-full overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#333333]">
           <h3 className="text-sm font-semibold text-text-primary">Analysis</h3>
           <button
             onClick={() => setRightPanelOpen(false)}
@@ -63,7 +63,7 @@ export function RightPanel(): React.ReactElement | null {
         </div>
 
         {/* Tab bar */}
-        <div className="flex border-b border-border/50 px-2">
+        <div className="flex border-b border-[#333333] px-2">
           {TABS.map((tab) => {
             const isActive = rightPanelTab === tab.key;
             const badge =
@@ -82,7 +82,7 @@ export function RightPanel(): React.ReactElement | null {
                   ${
                     isActive
                       ? "text-accent"
-                      : "text-text-muted hover:text-text-secondary"
+                      : "text-[#9CA3AF] hover:text-[#D1D5DB]"
                   }
                 `}
               >

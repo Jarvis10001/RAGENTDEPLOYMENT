@@ -24,6 +24,7 @@ export interface ToolStartEvent {
   type: "tool_start";
   tool: string;
   input: string;
+  thinking?: string;
 }
 
 export interface ToolEndEvent {
@@ -48,13 +49,20 @@ export interface ChartEvent {
   spec: ChartSpec;
 }
 
+export interface AgentLogEvent {
+  type: "agent_log";
+  log_type: string;
+  content: string;
+}
+
 export type SSEEvent =
   | TokenEvent
   | ToolStartEvent
   | ToolEndEvent
   | DoneEvent
   | ErrorEvent
-  | ChartEvent;
+  | ChartEvent
+  | AgentLogEvent;
 
 // ── History item for API ─────────────────────────────────────────
 

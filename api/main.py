@@ -165,12 +165,25 @@ async def _stream_chat(
                     for action in chunk["actions"]:
                         tool_name = getattr(action, "tool", "unknown_tool")
                         tool_input = getattr(action, "tool_input", "")
+
+                        # Extract Gemini thinking block from the AIMessage
+                        thinking_text = ""
+                        msg_log = getattr(action, "message_log", None)
+                        if msg_log:
+                            for msg in msg_log:
+                                content = getattr(msg, "content", None)
+                                if isinstance(content, list):
+                                    for block in content:
+                                        if isinstance(block, dict) and block.get("type") == "thinking":
+                                            thinking_text = block.get("thinking", "")
+
                         tool_start_times[tool_name] = time.perf_counter()
                         
                         yield _sse_event({
                             "type": "tool_start",
                             "tool": tool_name,
                             "input": str(tool_input)[:500],
+                            "thinking": thinking_text[:3000] if thinking_text else "",
                         })
                         
                 elif "steps" in chunk:
@@ -204,8 +217,22 @@ async def _stream_chat(
                         })
                         
                 elif "output" in chunk:
+                    # Extract thinking from the final output block too
+                    raw_output = chunk.get("output", "No response generated.")
+                    final_thinking = ""
+                    if isinstance(raw_output, list):
+                        for block in raw_output:
+                            if isinstance(block, dict) and block.get("type") == "thinking":
+                                final_thinking = block.get("thinking", "")
+                    if final_thinking:
+                        yield _sse_event({
+                            "type": "agent_log",
+                            "log_type": "final_thinking",
+                            "content": final_thinking[:3000],
+                        })
+
                     # Final response token stream
-                    output = _extract_text(chunk.get("output", "No response generated."))
+                    output = _extract_text(raw_output)
                     words = output.split(" ")
                     for i, word in enumerate(words):
                         token = word if i == len(words) - 1 else word + " "

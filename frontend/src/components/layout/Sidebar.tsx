@@ -1,10 +1,8 @@
 /**
- * Sidebar — 260px collapsible left panel with glassmorphism.
+ * Sidebar — minimal icon strip (collapsed) or full panel (expanded).
  *
- * - Brand header with animated gradient dot
- * - Search/filter input
- * - Conversation history grouped by Today/Yesterday/Older
- * - Bottom: New Conversation button + theme/settings icons
+ * Collapsed: 56px icon strip with logo, new chat, search, theme, settings
+ * Expanded:  260px panel with conversation list, search, branding
  */
 
 import { useEffect, useCallback, useState, useMemo } from "react";
@@ -12,7 +10,17 @@ import { useConversation, groupByDate } from "../../hooks/useConversation";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { useStore } from "../../store/useStore";
 import { ConfirmModal } from "../ui/ConfirmModal";
-import { IconPlus, IconTrash, IconMenu, IconClose, IconSearch, IconSparkles } from "../ui/icons";
+import {
+  IconPlus,
+  IconTrash,
+  IconMenu,
+  IconClose,
+  IconSearch,
+  IconSparkles,
+  IconMessageSquare,
+  IconClock,
+  IconSettings,
+} from "../ui/icons";
 
 function ConversationItem({
   id,
@@ -34,14 +42,16 @@ function ConversationItem({
         transition-all duration-200
         ${
           isActive
-            ? "bg-accent/10 border-l-2 border-l-accent pl-2.5"
+            ? "bg-accent/20 border-l-2 border-l-accent pl-2.5"
             : "hover:bg-bg-elevated/80 pl-3 border-l-2 border-l-transparent"
         }
       `}
     >
       <button
         onClick={onSelect}
-        className="flex-1 text-left py-2.5 pr-8 text-sm text-text-primary truncate focus-ring rounded-lg"
+        className={`flex-1 text-left py-2.5 pr-8 text-sm truncate focus-ring rounded-lg ${
+          isActive ? "text-white font-medium" : "text-[#A3A3A3]"
+        }`}
       >
         {title}
       </button>
@@ -67,9 +77,41 @@ function ConversationItem({
 
 function SectionLabel({ label }: { label: string }): React.ReactElement {
   return (
-    <div className="px-3 py-1.5 text-2xs font-semibold text-text-muted uppercase tracking-wider">
+    <div className="px-3 py-1.5 text-[11px] font-semibold text-[#737373] uppercase tracking-wider">
       {label}
     </div>
+  );
+}
+
+function IconButton({
+  icon: Icon,
+  label,
+  onClick,
+  isActive,
+  size = 18,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  onClick: () => void;
+  isActive?: boolean;
+  size?: number;
+}): React.ReactElement {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        w-10 h-10 rounded-xl flex items-center justify-center
+        transition-all duration-200 focus-ring
+        ${isActive
+          ? "bg-accent/15 text-accent"
+          : "text-text-muted hover:text-text-primary hover:bg-bg-elevated"
+        }
+      `}
+      aria-label={label}
+      title={label}
+    >
+      <Icon size={size} />
+    </button>
   );
 }
 
@@ -100,27 +142,70 @@ export function Sidebar(): React.ReactElement {
       window.removeEventListener("ri:new-conversation", handleNewConversation);
   }, [handleNewConversation]);
 
+  // ── Collapsed: minimal icon strip ─────────────────────────────
   if (!sidebarOpen) {
     return (
-      <div className="w-12 flex-shrink-0 border-r border-border bg-bg-surface/50 flex flex-col items-center py-4 gap-3">
-        <button
+      <div className="w-[60px] flex-shrink-0 border-r border-[#333333] bg-bg-primary flex flex-col items-center py-4 gap-2">
+        {/* Logo */}
+        <div className="w-8 h-8 rounded-lg bg-[#FFFFFF] flex items-center justify-center mb-6">
+          <IconSparkles size={16} className="text-[#111111]" />
+        </div>
+
+        {/* New chat */}
+        <IconButton
+          icon={IconPlus}
+          label="New conversation"
+          onClick={createNew}
+        />
+
+        {/* Search placeholder */}
+        <IconButton
+          icon={IconSearch}
+          label="Search"
           onClick={() => useStore.getState().toggleSidebar()}
-          className="text-text-muted hover:text-text-primary transition-colors focus-ring rounded-lg p-1.5 hover:bg-bg-elevated"
-          aria-label="Open sidebar"
-        >
-          <IconMenu size={18} />
-        </button>
+        />
+
+        {/* Home/Chat history */}
+        <IconButton
+          icon={IconMessageSquare}
+          label="Home"
+          onClick={() => useStore.getState().toggleSidebar()}
+          isActive={!!activeConversationId}
+        />
+
+        {/* Folder/Projects */}
+        <IconButton
+          icon={IconSettings} // Using settings as placeholder for folder
+          label="Projects"
+          onClick={() => useStore.getState().toggleSidebar()}
+        />
+
+        {/* Recent/Clock */}
+        <IconButton
+          icon={IconClock}
+          label="Recent"
+          onClick={() => useStore.getState().toggleSidebar()}
+        />
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* User profile avatar placeholder at bottom */}
+        <div className="w-8 h-8 rounded-full bg-[#E5D3B3] flex items-center justify-center mt-auto cursor-pointer">
+          <span className="text-xs font-medium text-[#111111]">UI</span>
+        </div>
       </div>
     );
   }
 
+  // ── Expanded: full sidebar ────────────────────────────────────
   return (
-    <div className="w-sidebar flex-shrink-0 border-r border-border bg-bg-surface/50 backdrop-blur-sm flex flex-col h-full overflow-hidden">
+    <div className="w-sidebar flex-shrink-0 border-r border-[#333333] bg-bg-primary flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
-            <IconSparkles size={16} className="text-accent" />
+          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
+            <IconSparkles size={16} className="text-black" />
           </div>
           <div className="flex flex-col">
             <span className="text-[13px] font-bold tracking-tight text-text-primary leading-tight">
@@ -168,10 +253,10 @@ export function Sidebar(): React.ReactElement {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search conversations..."
             className="
-              w-full bg-bg-elevated/50 border border-border/50 rounded-lg
+              w-full bg-[#212121] border border-[#333333] rounded-lg
               text-xs text-text-primary placeholder:text-text-muted
               pl-8 pr-3 py-2 outline-none
-              focus:border-accent/30 focus:bg-bg-elevated
+              focus:border-[#525252] focus:bg-[#262626]
               transition-all duration-200
             "
           />
@@ -236,7 +321,7 @@ export function Sidebar(): React.ReactElement {
       </div>
 
       {/* Bottom section */}
-      <div className="border-t border-border/40 px-3 py-3 flex items-center justify-between">
+      <div className="border-t border-[#333333] px-5 py-4 flex items-center justify-between">
         <ThemeToggle />
       </div>
 
